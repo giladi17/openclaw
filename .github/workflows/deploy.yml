@@ -44,5 +44,6 @@ jobs:
         curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
         chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
+        kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
         kubectl rollout restart deployment openclaw-brain
         kubectl rollout status deployment openclaw-brain
