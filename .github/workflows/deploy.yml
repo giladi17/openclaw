@@ -1,0 +1,48 @@
+name: Deploy OpenClaw
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push Brain
+      uses: docker/build-push-action@v5
+      with:
+        context: ./brain
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: doronsun/openclaw-brain:latest
+
+    - name: Build and push Agent
+      uses: docker/build-push-action@v5
+      with:
+        context: ./agent
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: doronsun/openclaw-agent:latest
+
+    - name: Deploy to Kubernetes
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+        curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+        kubectl rollout restart deployment openclaw-brain
+        kubectl rollout status deployment openclaw-brain
