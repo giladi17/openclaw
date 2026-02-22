@@ -129,6 +129,7 @@ resource "aws_instance" "master" {
     chown ubuntu:ubuntu /home/ubuntu/.kube/config
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+    kubectl taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule-
     kubeadm token create --print-join-command > /home/ubuntu/join-command.sh
     chmod +x /home/ubuntu/join-command.sh
     aws secretsmanager get-secret-value --secret-id openclaw/secrets --region eu-central-1 --query SecretString --output text > /tmp/secret.json
