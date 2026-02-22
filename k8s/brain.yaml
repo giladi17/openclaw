@@ -13,6 +13,8 @@ spec:
         app: openclaw-brain
     spec:
       serviceAccountName: brain-sa
+      nodeSelector:
+        kubernetes.io/hostname: ip-172-31-5-18
       imagePullSecrets:
       - name: dockerhub-secret
       containers:
