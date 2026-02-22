@@ -14,7 +14,7 @@ spec:
     spec:
       serviceAccountName: brain-sa
       nodeSelector:
-        kubernetes.io/hostname: ip-172-31-5-18
+        kubernetes.io/hostname: ip-172-31-1-8
       imagePullSecrets:
       - name: dockerhub-secret
       containers:
