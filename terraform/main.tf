@@ -127,10 +127,10 @@ resource "aws_instance" "master" {
     mkdir -p /home/ubuntu/.kube
     cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
     chown ubuntu:ubuntu /home/ubuntu/.kube/config
-    su - ubuntu -c "kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml"
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+    kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
     kubeadm token create --print-join-command > /home/ubuntu/join-command.sh
     chmod +x /home/ubuntu/join-command.sh
-    export KUBECONFIG=/etc/kubernetes/admin.conf
     aws secretsmanager get-secret-value --secret-id openclaw/secrets --region eu-central-1 --query SecretString --output text > /tmp/secret.json
     TELEGRAM_TOKEN=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['TELEGRAM_TOKEN'])")
     GROQ_API_KEY=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['GROQ_API_KEY'])")
@@ -138,37 +138,9 @@ resource "aws_instance" "master" {
     DOCKERHUB_TOKEN=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['DOCKERHUB_TOKEN'])")
     kubectl create secret generic openclaw-secrets --from-literal=TELEGRAM_TOKEN=$TELEGRAM_TOKEN --from-literal=GROQ_API_KEY=$GROQ_API_KEY
     kubectl create secret docker-registry dockerhub-secret --docker-username=$DOCKERHUB_USERNAME --docker-password=$DOCKERHUB_TOKEN
-    kubectl create deployment redis --image=redis:alpine
-    kubectl expose deployment redis --name=redis-service --port=6379
-    kubectl create serviceaccount brain-sa
-    kubectl apply -f - <<YAML
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: brain-role
-rules:
-- apiGroups: ["batch"]
-  resources: ["jobs"]
-  verbs: ["create","delete","get","list"]
-- apiGroups: [""]
-  resources: ["pods","pods/log"]
-  verbs: ["get","list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: brain-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: brain-role
-subjects:
-- kind: ServiceAccount
-  name: brain-sa
-  namespace: default
-YAML
-    kubectl create deployment openclaw-brain --image=doronsun/openclaw-brain:latest
-    kubectl patch deployment openclaw-brain -p '{"spec":{"template":{"spec":{"serviceAccountName":"brain-sa","imagePullSecrets":[{"name":"dockerhub-secret"}],"containers":[{"name":"openclaw-brain","env":[{"name":"TELEGRAM_TOKEN","valueFrom":{"secretKeyRef":{"name":"openclaw-secrets","key":"TELEGRAM_TOKEN"}}},{"name":"GROQ_API_KEY","valueFrom":{"secretKeyRef":{"name":"openclaw-secrets","key":"GROQ_API_KEY"}}}]}]}}}}'
+    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/rbac.yaml
+    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/redis.yaml
+    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/brain.yaml
     rm /tmp/secret.json
   EOF
 

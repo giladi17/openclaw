@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw-brain
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw-brain
+  template:
+    metadata:
+      labels:
+        app: openclaw-brain
+    spec:
+      serviceAccountName: brain-sa
+      imagePullSecrets:
+      - name: dockerhub-secret
+      containers:
+      - name: openclaw-brain
+        image: doronsun/openclaw-brain:latest
+        env:
+        - name: TELEGRAM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: openclaw-secrets
+              key: TELEGRAM_TOKEN
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openclaw-secrets
+              key: GROQ_API_KEY
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
