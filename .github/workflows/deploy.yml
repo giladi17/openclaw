@@ -27,7 +27,7 @@ jobs:
         context: ./brain
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: doronsun/openclaw-brain:latest
+        tags: giladi17/openclaw-brain:latest
 
     - name: Build and push Agent
       uses: docker/build-push-action@v5
@@ -35,7 +35,7 @@ jobs:
         context: ./agent
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: doronsun/openclaw-agent:latest
+        tags: giladi17/openclaw-agent:latest
 
     - name: Deploy to Kubernetes
       run: |
