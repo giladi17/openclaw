@@ -13,13 +13,15 @@ spec:
         app: openclaw-brain
     spec:
       serviceAccountName: brain-sa
+      # ⚠️  אחרי שה-Master עולה, תריץ: kubectl get nodes
+      # תחליף את הערך הזה ב-hostname של ה-Master שלך
       nodeSelector:
-        kubernetes.io/hostname: ip-172-31-1-8
+        kubernetes.io/hostname: ip-172-31-41-98
       imagePullSecrets:
       - name: dockerhub-secret
       containers:
       - name: openclaw-brain
-        image: doronsun/openclaw-brain:latest
+        image: giladi17/openclaw-brain:latest   # ← שונה
         env:
         - name: TELEGRAM_TOKEN
           valueFrom:
