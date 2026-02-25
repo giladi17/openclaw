@@ -1,16 +1,16 @@
-name: Deploy OpenClaw
+name: Build and Deploy OpenClaw
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
+
     steps:
-    
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Login to DockerHub
       uses: docker/login-action@v3
@@ -21,29 +21,34 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and push Brain
+    - name: Build and push Brain image
       uses: docker/build-push-action@v5
       with:
         context: ./brain
-        platforms: linux/amd64,linux/arm64
         push: true
         tags: giladi17/openclaw-brain:latest
+        platforms: linux/amd64,linux/arm64
 
-    - name: Build and push Agent
+    - name: Build and push Agent image
       uses: docker/build-push-action@v5
       with:
         context: ./agent
-        platforms: linux/amd64,linux/arm64
         push: true
         tags: giladi17/openclaw-agent:latest
+        platforms: linux/amd64,linux/arm64
 
-    - name: Deploy to Kubernetes
-      run: |
-        mkdir -p ~/.kube
-        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
-        curl -LO "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
-        chmod +x kubectl
-        sudo mv kubectl /usr/local/bin/
-        kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
-        kubectl rollout restart deployment openclaw-brain
-        kubectl rollout status deployment openclaw-brain
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy to Kubernetes via SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.MASTER_IP }}
+        username: ubuntu
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart deployment/openclaw-brain
+          sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout status deployment/openclaw-brain --timeout=120s
+          echo "✅ Deploy complete!"
