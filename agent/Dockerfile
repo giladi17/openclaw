@@ -11,6 +11,7 @@ COPY --from=builder /root/.local /root/.local
 COPY agent.py .
 COPY analyst.py .
 COPY trader.py .
+COPY scanner.py .
 
 ENV PATH=/root/.local/bin:$PATH
 

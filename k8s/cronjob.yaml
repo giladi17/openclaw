@@ -1,0 +1,125 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: openclaw-morning
+  namespace: default
+spec:
+  # כל יום שני-שישי בשעה 9:30 EST (14:30 UTC)
+  schedule: "30 14 * * 1-5"
+  jobTemplate:
+    spec:
+      ttl_seconds_after_finished: 120
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: brain-sa
+          imagePullSecrets:
+          - name: dockerhub-secret
+          containers:
+          - name: scheduler
+            image: giladi17/openclaw-agent:latest
+            env:
+            - name: ROLE
+              value: "scanner"
+            - name: TASK
+              value: "morning_scan"
+            - name: CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: TELEGRAM_CHAT_ID
+            - name: TELEGRAM_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: TELEGRAM_TOKEN
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: GROQ_API_KEY
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ALPACA_API_KEY
+            - name: ALPACA_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ALPACA_SECRET_KEY
+            - name: ALPACA_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ALPACA_BASE_URL
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: openclaw-evening
+  namespace: default
+spec:
+  # כל יום שני-שישי בשעה 15:45 EST (20:45 UTC)
+  schedule: "45 20 * * 1-5"
+  jobTemplate:
+    spec:
+      ttl_seconds_after_finished: 120
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: brain-sa
+          imagePullSecrets:
+          - name: dockerhub-secret
+          containers:
+          - name: scheduler
+            image: giladi17/openclaw-agent:latest
+            env:
+            - name: ROLE
+              value: "scanner"
+            - name: TASK
+              value: "evening_scan"
+            - name: CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: TELEGRAM_CHAT_ID
+            - name: TELEGRAM_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: TELEGRAM_TOKEN
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: GROQ_API_KEY
+            - name: ALPACA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ALPACA_API_KEY
+            - name: ALPACA_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ALPACA_SECRET_KEY
+            - name: ALPACA_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: ALPACA_BASE_URL
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"

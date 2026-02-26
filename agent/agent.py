@@ -24,7 +24,6 @@ ROLE_PROMPTS = {
 async def run():
     logger.info(f"סוכן {ROLE} התעורר למשימה: {TASK}")
 
-    # אם זה analyst או trader — הפעל את הסוכן המתאים
     if ROLE == "analyst":
         from analyst import run as analyst_run
         await analyst_run()
@@ -35,10 +34,15 @@ async def run():
         await trader_run()
         return
 
+    if ROLE == "scanner":
+        from scanner import run as scanner_run
+        await scanner_run()
+        return
+
     # סוכנים רגילים
     redis_client = redis.Redis(host="redis-service", port=6379, decode_responses=True)
-    history  = redis_client.get(f"chat:{CHAT_ID}")
-    messages = json.loads(history) if history else []
+    history      = redis_client.get(f"chat:{CHAT_ID}")
+    messages     = json.loads(history) if history else []
 
     groq_client  = Groq(api_key=GROQ_API_KEY)
     conversation = [{"role": "system", "content": ROLE_PROMPTS.get(ROLE, ROLE_PROMPTS["researcher"])}]
@@ -51,7 +55,7 @@ async def run():
     )
     result = response.choices[0].message.content
 
-    existing         = redis_client.get(f"chat:{CHAT_ID}")
+    existing          = redis_client.get(f"chat:{CHAT_ID}")
     existing_messages = json.loads(existing) if existing else []
     existing_messages.append({"role": "assistant", "content": result})
     existing_messages = existing_messages[-10:]
@@ -65,3 +69,5 @@ async def run():
 
 if __name__ == "__main__":
     asyncio.run(run())
+
+  
