@@ -8,7 +8,7 @@ spec:
   schedule: "30 14 * * 1-5"
   jobTemplate:
     spec:
-      ttl_seconds_after_finished: 120
+      ttlSecondsAfterFinished: 120
       template:
         spec:
           restartPolicy: Never
@@ -71,7 +71,7 @@ spec:
   schedule: "45 20 * * 1-5"
   jobTemplate:
     spec:
-      ttl_seconds_after_finished: 120
+      ttlSecondsAfterFinished: 120
       template:
         spec:
           restartPolicy: Never
