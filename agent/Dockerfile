@@ -10,6 +10,7 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 COPY agent.py .
 COPY analyst.py .
+COPY trader.py .
 
 ENV PATH=/root/.local/bin:$PATH
 
