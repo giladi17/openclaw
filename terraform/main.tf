@@ -139,11 +139,11 @@ resource "aws_instance" "master" {
     DOCKERHUB_TOKEN=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['DOCKERHUB_TOKEN'])")
     kubectl create secret generic openclaw-secrets --from-literal=TELEGRAM_TOKEN=$TELEGRAM_TOKEN --from-literal=GROQ_API_KEY=$GROQ_API_KEY
     kubectl create secret docker-registry dockerhub-secret --docker-username=$DOCKERHUB_USERNAME --docker-password=$DOCKERHUB_TOKEN
-    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/rbac.yaml
-    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/redis.yaml
-    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/brain.yaml
-    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/quota.yaml
-    kubectl apply -f https://raw.githubusercontent.com/doronsun/openclaw/main/k8s/network-policy.yaml
+    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/rbac.yaml
+    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/redis.yaml
+    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/brain.yaml
+    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/quota.yaml
+    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/network-policy.yaml
     rm /tmp/secret.json
   EOF
 
