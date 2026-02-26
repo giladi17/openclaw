@@ -9,6 +9,7 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 COPY agent.py .
+COPY analyst.py .
 
 ENV PATH=/root/.local/bin:$PATH
 
