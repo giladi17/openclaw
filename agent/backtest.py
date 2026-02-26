@@ -240,6 +240,11 @@ async def run():
     end_date   = datetime.now().strftime("%Y-%m-%d")
     start_date = "2024-08-01"
 
+    # בדיקת נתונים לפני הרצה
+    test_bars = get_historical_bars("AAPL", start_date, end_date)
+    import asyncio as _asyncio
+    await bot.send_message(chat_id=CHAT_ID, text=f"🔍 בדיקה: AAPL החזיר {len(test_bars)} ימים מ-{start_date}")
+
     results = run_backtest(start_date, end_date)
 
     if "error" in results:
