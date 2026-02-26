@@ -33,7 +33,7 @@ WATCHLIST = [
 def get_historical_bars(symbol: str, start: str, end: str) -> list:
     """שולף נתונים היסטוריים מ-Alpaca"""
     url    = f"https://data.alpaca.markets/v2/stocks/{symbol}/bars"
-    params = {"timeframe": "1Day", "start": start, "end": end, "limit": 1000}
+    params = {"timeframe": "1Day", "start": start, "end": end, "limit": 1000, "feed": "iex"}
     response = requests.get(url, headers=HEADERS, params=params)
     data     = response.json()
     return data.get("bars", [])
