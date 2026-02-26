@@ -34,6 +34,7 @@ def decide_agent(message: str) -> str:
 - אם המשתמש מבקש לקנות מניה - ענה: trader
 - אם המשתמש מבקש למכור מניה - ענה: trader
 - אם המשתמש שואל על הפוזיציות שלו, התיק שלו - ענה: trader
+- אם המשתמש מבקש backtest, לבדוק את האסטרטגיה, לבדוק ביצועים היסטוריים - ענה: backtest
 - אם המשתמש מבקש לסכם, לקצר - ענה: summarizer
 - אם המשתמש מבקש קוד, תכנות - ענה: coder
 - בכל מקרה אחר - ענה: researcher"""
@@ -43,7 +44,7 @@ def decide_agent(message: str) -> str:
         max_tokens=10
     )
     agent = response.choices[0].message.content.strip().lower()
-    valid = ["coder", "researcher", "summarizer", "analyst", "trader"]
+    valid = ["coder", "researcher", "summarizer", "analyst", "trader", "backtest"]
     if agent not in valid:
         agent = "researcher"
     return agent

@@ -12,6 +12,7 @@ COPY agent.py .
 COPY analyst.py .
 COPY trader.py .
 COPY scanner.py .
+COPY backtest.py .
 
 ENV PATH=/root/.local/bin:$PATH
 

@@ -39,6 +39,11 @@ async def run():
         await scanner_run()
         return
 
+    if ROLE == "backtest":
+        from backtest import run as backtest_run
+        await backtest_run()
+        return
+
     # סוכנים רגילים
     redis_client = redis.Redis(host="redis-service", port=6379, decode_responses=True)
     history      = redis_client.get(f"chat:{CHAT_ID}")
@@ -69,5 +74,3 @@ async def run():
 
 if __name__ == "__main__":
     asyncio.run(run())
-
-  
