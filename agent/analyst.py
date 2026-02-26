@@ -23,7 +23,7 @@ def get_stock_data(symbol: str) -> dict:
         "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
     }
     url = f"https://data.alpaca.markets/v2/stocks/{symbol}/bars"
-    params = {"timeframe": "1Day", "limit": 30, "feed": "sip"}
+    params = {"timeframe": "1Day", "limit": 30, "feed": "iex"}
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
     bars = data.get("bars", [])
