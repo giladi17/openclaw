@@ -238,7 +238,7 @@ async def run():
 
     # 6 חודשים אחורה
     end_date   = datetime.now().strftime("%Y-%m-%d")
-    start_date = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+    start_date = "2024-08-01"
 
     results = run_backtest(start_date, end_date)
 
