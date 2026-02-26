@@ -82,11 +82,26 @@ def score_stock(closes: list, volumes: list) -> int:
     return score
 
 
+
+def is_market_bullish_on_date(all_spy_bars: list, date_str: str) -> bool:
+    """בודק אם השוק היה חיובי בתאריך מסוים"""
+    bars_until = [b for b in all_spy_bars if b["t"][:10] <= date_str]
+    if len(bars_until) < 20:
+        return True
+    closes  = [b["c"] for b in bars_until]
+    ma20    = sum(closes[-20:]) / 20
+    current = closes[-1]
+    return current > ma20
+
+
 def run_backtest(start_date: str, end_date: str, initial_capital: float = 100000) -> dict:
     """
     מריץ backtest על כל ה-watchlist בין start_date ל-end_date
     """
     logger.info(f"מריץ backtest: {start_date} → {end_date}")
+
+    # טעינת נתוני SPY לפילטר שוק
+    spy_bars = get_historical_bars("SPY", start_date, end_date)
 
     # שלב 1: הורדת כל הנתונים
     all_data = {}
@@ -149,8 +164,9 @@ def run_backtest(start_date: str, end_date: str, initial_capital: float = 100000
                 })
                 del positions[symbol]
 
-        # סרוק הזדמנויות חדשות (רק אם יש מספיק הון)
-        if capital > initial_capital * 0.1 and len(positions) < 5:
+        # סרוק הזדמנויות חדשות (רק אם יש מספיק הון והשוק חיובי)
+        market_ok = is_market_bullish_on_date(spy_bars, date_str)
+        if market_ok and capital > initial_capital * 0.1 and len(positions) < 5:
             candidates = []
             for symbol, bars in day_data.items():
                 if symbol in positions:

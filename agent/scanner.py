@@ -137,15 +137,41 @@ def check_evening_positions(positions: list) -> list:
     return to_sell
 
 
+
+def is_market_bullish() -> bool:
+    """בודק אם השוק במגמה חיובית לפי SPY"""
+    try:
+        start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+        url        = "https://data.alpaca.markets/v2/stocks/SPY/bars"
+        params     = {"timeframe": "1Day", "limit": 25, "start": start_date}
+        response   = requests.get(url, headers=HEADERS, params=params)
+        bars       = response.json().get("bars", [])
+        if len(bars) < 20:
+            return True
+        closes  = [bar["c"] for bar in bars]
+        ma20    = sum(closes[-20:]) / 20
+        current = closes[-1]
+        return current > ma20
+    except:
+        return True
+
+
 async def morning_scan(bot: Bot):
     """סריקת בוקר — מוצא הזדמנויות וקונה"""
     logger.info("🌅 סריקת בוקר מתחילה...")
 
+    # בדוק אם השוק חיובי
+    market_ok = is_market_bullish()
+    market_msg = "🟢 השוק במגמה חיובית" if market_ok else "🔴 השוק במגמה שלילית — לא קונה היום"
+
     await bot.send_message(
         chat_id=CHAT_ID,
-        text="🌅 *סריקת בוקר מתחילה...*\nסורק 20 מניות, זה ייקח כדקה.",
+        text=f"🌅 *סריקת בוקר מתחילה...*\n{market_msg}\nסורק 20 מניות, זה ייקח כדקה.",
         parse_mode="Markdown"
     )
+
+    if not market_ok:
+        return
 
     # סריקת כל המניות
     results = []
