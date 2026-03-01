@@ -173,8 +173,7 @@ async def morning_scan(bot: Bot):
     if not market_ok:
         positions = get_current_positions()
         if positions and isinstance(positions, list) and len(positions) > 0:
-            lines = ["📋 *מצב התיק הנוכחי:*
-"]
+            lines = ["📋 *מצב התיק הנוכחי:*\n"]
             total_pl = 0
             for pos in positions:
                 pl     = float(pos.get("unrealized_pl", 0))
@@ -183,10 +182,8 @@ async def morning_scan(bot: Bot):
                 total_pl += pl
                 lines.append(f"{emoji} {pos.get('symbol')}: ${pl:.2f} ({pl_pct:.1f}%)")
             total_emoji = "🟢" if total_pl >= 0 else "🔴"
-            lines.append(f"
-{total_emoji} *סה\"כ P&L: ${total_pl:.2f}*")
-            await bot.send_message(chat_id=CHAT_ID, text="
-".join(lines), parse_mode="Markdown")
+            lines.append(f"\n{total_emoji} *סה\"כ P&L: ${total_pl:.2f}*")
+            await bot.send_message(chat_id=CHAT_ID, text="\n".join(lines), parse_mode="Markdown")
         else:
             await bot.send_message(chat_id=CHAT_ID, text="📭 אין פוזיציות פתוחות כרגע.")
         return
