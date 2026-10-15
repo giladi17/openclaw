@@ -13,7 +13,8 @@ COPY analyst.py .
 COPY trader.py .
 COPY scanner.py .
 COPY backtest.py .
+COPY ldm_backtest.py .
 
 ENV PATH=/root/.local/bin:$PATH
 
-CMD ["python", "agent.py"]
+CMD ["python", "agent.py"]

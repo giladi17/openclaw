@@ -1,21 +1,72 @@
+# ⚠️ שים לב: Flannel לא אוכף NetworkPolicies — הן נשמרות אבל לא חוסמות כלום.
+#    כדי שיעבדו צריך CNI שתומך בהן, למשל Calico או Canal (Flannel + Calico policy).
+#
+# המדיניות כאן כתובה כך שלא תשבור את המערכת אם יופעל CNI אוכף:
+# DNS פתוח, HTTPS החוצה לאינטרנט (Telegram / Groq / Alpaca / Kubernetes API), ו-Redis רק מבפנים.
+
+# Redis — מקבל חיבורים רק מה-Brain ומהסוכנים
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: brain-network-policy
+  name: redis-ingress
   namespace: default
 spec:
   podSelector:
     matchLabels:
-      app: openclaw-brain
+      app: redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: openclaw-brain
+    - podSelector:
+        matchLabels:
+          app: openclaw-agent
+    ports:
+    - port: 6379
+      protocol: TCP
+---
+# Brain + סוכנים — יציאה רק ל-DNS, ל-Redis ול-HTTPS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openclaw-egress
+  namespace: default
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values: ["openclaw-brain", "openclaw-agent"]
   policyTypes:
   - Egress
   egress:
+  # DNS (CoreDNS ב-kube-system)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # Redis
   - to:
     - podSelector:
         matchLabels:
           app: redis
+    ports:
+    - port: 6379
+      protocol: TCP
+  # HTTPS לאינטרנט + Kubernetes API (443 דרך ה-Service, 6443 ישירות ל-control-plane)
   - to:
-    - namespaceSelector: {}
+    - ipBlock:
+        cidr: 0.0.0.0/0
     ports:
     - port: 443
+      protocol: TCP
+    - port: 6443
       protocol: TCP

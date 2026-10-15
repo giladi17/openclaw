@@ -32,14 +32,23 @@ WATCHLIST = [
 ]
 
 
-def get_stock_bars(symbol: str) -> list:
-    """שולף נתוני מניה מ-Alpaca"""
-    start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+MAX_POSITIONS = 5   # כמו ב-backtest — לא מחזיקים יותר מ-5 מניות במקביל
+
+
+def get_stock_bars(symbol: str, days: int = 30) -> list:
+    """
+    שולף את ה-`days` נרות היומיים האחרונים מ-Alpaca, מהישן לחדש.
+    חשוב: Alpaca מחזיר נרות מה-start קדימה, אז limit בלי sort=desc
+    היה מחזיר את הימים הישנים ביותר בטווח — לא את האחרונים.
+    """
+    start_date = (datetime.now() - timedelta(days=days * 2 + 10)).strftime("%Y-%m-%d")
     url        = f"https://data.alpaca.markets/v2/stocks/{symbol}/bars"
-    params     = {"timeframe": "1Day", "limit": 30, "start": start_date}
-    response   = requests.get(url, headers=HEADERS, params=params)
-    data       = response.json()
-    return data.get("bars", [])
+    params     = {"timeframe": "1Day", "start": start_date, "limit": days,
+                  "sort": "desc", "feed": "iex"}
+    response   = requests.get(url, headers=HEADERS, params=params, timeout=15)
+    response.raise_for_status()
+    bars       = response.json().get("bars") or []
+    return list(reversed(bars))   # חזרה לסדר כרונולוגי: ישן → חדש
 
 
 def calculate_rsi(closes: list, period: int = 14) -> float:
@@ -120,19 +129,53 @@ def get_current_positions() -> list:
     return response.json()
 
 
+MAX_HOLD_DAYS = 10   # כמו ב-backtest — יציאה אחרי 10 ימים קלנדריים
+
+
+def get_entry_dates() -> dict:
+    """
+    מחזיר {symbol: תאריך הקנייה האחרונה שבוצעה} מתוך היסטוריית ההזמנות.
+    Alpaca לא מחזיר תאריך כניסה בפוזיציה עצמה, אז מחשבים אותו מההזמנות.
+    רק פוזיציות שהסורק פתח יוצאות אחרי 10 ימים.
+    """
+    after    = (datetime.utcnow() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00Z")
+    url      = f"{ALPACA_BASE_URL}/v2/orders"
+    params   = {"status": "closed", "limit": 500, "direction": "desc", "after": after}
+    response = requests.get(url, headers=HEADERS, params=params, timeout=15)
+    response.raise_for_status()
+    entries = {}
+    for o in response.json():
+        # רק קניות של הסורק (מתויגות ב-client_order_id) — לא נוגעים במניות שקנית ידנית
+        if (o.get("side") == "buy" and o.get("filled_at")
+                and str(o.get("client_order_id", "")).startswith("scan-")
+                and o["symbol"] not in entries):
+            entries[o["symbol"]] = datetime.strptime(o["filled_at"][:10], "%Y-%m-%d")
+    return entries
+
+
 def check_evening_positions(positions: list) -> list:
     """בודק אילו פוזיציות צריך למכור"""
+    try:
+        entry_dates = get_entry_dates()
+    except Exception as e:
+        logger.warning(f"לא הצלחתי לשלוף תאריכי כניסה — בודק רק רווח/הפסד: {e}")
+        entry_dates = {}
+
     to_sell = []
     for pos in positions:
         symbol  = pos.get("symbol")
         pl_pct  = float(pos.get("unrealized_plpc", 0)) * 100
         qty     = pos.get("qty")
+        entry   = entry_dates.get(symbol)
+        held    = (datetime.utcnow() - entry).days if entry else 0
 
-        # מכור אם רווח > 15% או הפסד > 10%
+        # מכור אם רווח > 15%, הפסד > 10%, או שהחזקנו יותר מ-10 ימים
         if pl_pct >= 15:
             to_sell.append({"symbol": symbol, "qty": qty, "reason": f"רווח {pl_pct:.1f}% 🎯"})
         elif pl_pct <= -10:
             to_sell.append({"symbol": symbol, "qty": qty, "reason": f"Stop Loss {pl_pct:.1f}% 🛑"})
+        elif held >= MAX_HOLD_DAYS:
+            to_sell.append({"symbol": symbol, "qty": qty, "reason": f"{held} ימים בתיק ⏰"})
 
     return to_sell
 
@@ -140,20 +183,27 @@ def check_evening_positions(positions: list) -> list:
 
 def is_market_bullish() -> bool:
     """בודק אם השוק במגמה חיובית לפי SPY"""
+    # אם אין נתונים או שיש שגיאה — לא קונים (fail-safe), במקום לקנות בעיוורון
     try:
-        start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-        url        = "https://data.alpaca.markets/v2/stocks/SPY/bars"
-        params     = {"timeframe": "1Day", "limit": 25, "start": start_date}
-        response   = requests.get(url, headers=HEADERS, params=params)
-        bars       = response.json().get("bars", [])
+        bars = get_stock_bars("SPY", days=25)
         if len(bars) < 20:
-            return True
+            logger.warning(f"SPY: רק {len(bars)} נרות — מדלג על קניות")
+            return False
         closes  = [bar["c"] for bar in bars]
         ma20    = sum(closes[-20:]) / 20
         current = closes[-1]
         return current > ma20
-    except:
-        return True
+    except Exception as e:
+        logger.error(f"שגיאה בבדיקת SPY: {e} — מדלג על קניות")
+        return False
+
+
+def get_open_buy_symbols() -> set:
+    """מחזיר מניות שיש עליהן פקודת קנייה פתוחה (שעוד לא בוצעה)"""
+    url      = f"{ALPACA_BASE_URL}/v2/orders"
+    response = requests.get(url, headers=HEADERS, params={"status": "open"}, timeout=15)
+    response.raise_for_status()
+    return {o["symbol"] for o in response.json() if o.get("side") == "buy"}
 
 
 async def morning_scan(bot: Bot):
@@ -213,9 +263,30 @@ async def morning_scan(bot: Bot):
 
     await bot.send_message(chat_id=CHAT_ID, text="\n".join(lines), parse_mode="Markdown")
 
-    # קנייה אוטומטית של Top 3
-    bought = []
-    for stock in top_picks[:3]:
+    # מה כבר מוחזק או בדרך — כדי לא לקנות את אותה מניה שוב כל בוקר
+    try:
+        positions = get_current_positions()
+        held      = {p["symbol"] for p in positions} if isinstance(positions, list) else None
+        pending   = get_open_buy_symbols()
+    except Exception as e:
+        logger.error(f"לא הצלחתי לבדוק פוזיציות קיימות: {e}")
+        held = None
+    if held is None:
+        await bot.send_message(chat_id=CHAT_ID, text="⚠️ לא הצלחתי לבדוק את הפוזיציות הקיימות — לא קונה היום.")
+        return
+
+    owned      = held | pending
+    free_slots = MAX_POSITIONS - len(owned)
+
+    # קנייה אוטומטית של עד 3 מניות חדשות
+    bought  = []
+    skipped = []
+    for stock in top_picks:
+        if stock["symbol"] in owned:
+            skipped.append(stock["symbol"])
+            continue
+        if free_slots <= 0 or len(bought) >= 3:
+            break
         if stock["score"] >= 50:  # קנה רק אם ציון גבוה מספיק
             try:
                 url  = f"{ALPACA_BASE_URL}/v2/orders"
@@ -224,14 +295,21 @@ async def morning_scan(bot: Bot):
                     "qty":           "2",
                     "side":          "buy",
                     "type":          "market",
-                    "time_in_force": "day"
+                    "time_in_force": "day",
+                    "client_order_id": f"scan-{stock['symbol']}-{datetime.utcnow():%Y%m%d%H%M%S}"
                 }
                 response = requests.post(url, headers={**HEADERS, "Content-Type": "application/json"}, json=body)
                 result   = response.json()
                 if "id" in result:
                     bought.append(stock["symbol"])
+                    free_slots -= 1
             except Exception as e:
                 logger.error(f"שגיאה בקנייה של {stock['symbol']}: {e}")
+
+    if skipped:
+        await bot.send_message(chat_id=CHAT_ID, text=f"ℹ️ כבר מחזיק, לא קונה שוב: {', '.join(skipped)}")
+    if free_slots <= 0 and not bought:
+        await bot.send_message(chat_id=CHAT_ID, text=f"ℹ️ התיק מלא ({MAX_POSITIONS} פוזיציות) — לא קונה היום.")
 
     if bought:
         await bot.send_message(
@@ -305,4 +383,4 @@ async def run():
 
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(run())

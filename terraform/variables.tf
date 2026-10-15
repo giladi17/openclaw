@@ -29,3 +29,26 @@ variable "worker_instance_type" {
   type        = string
   default     = "t2.micro"
 }
+variable "secrets_id" {
+  description = "שם הסוד ב-AWS Secrets Manager"
+  type        = string
+  default     = "openclaw/secrets"
+}
+
+variable "secrets_region" {
+  description = "האזור שבו שמור הסוד ב-Secrets Manager (יכול להיות שונה מאזור השרתים)"
+  type        = string
+  default     = "eu-central-1"
+}
+
+variable "ssh_allowed_cidrs" {
+  description = "מי רשאי להתחבר ב-SSH. ה-CI של GitHub מתחבר ב-SSH מכתובות משתנות, ולכן ברירת המחדל פתוחה — הגישה מוגנת במפתח בלבד."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "k8s_api_allowed_cidrs" {
+  description = "כתובות חיצוניות שמורשות לגשת ל-Kubernetes API (פורט 6443), למשל [\"1.2.3.4/32\"]. ריק = רק מתוך ה-VPC."
+  type        = list(string)
+  default     = []
+}

@@ -4,8 +4,24 @@ on:
   push:
     branches: [ main ]
 
+# לא להריץ שתי פריסות במקביל
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - name: Syntax check
+      run: python -m compileall -q brain agent
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -21,12 +37,15 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    # כל image מקבל גם תגית של ה-commit — כך אפשר לדעת בדיוק מה רץ, ולחזור לגרסה קודמת
     - name: Build and push Brain image
       uses: docker/build-push-action@v5
       with:
         context: ./brain
         push: true
-        tags: giladi17/openclaw-brain:latest
+        tags: |
+          giladi17/openclaw-brain:latest
+          giladi17/openclaw-brain:${{ github.sha }}
         platforms: linux/amd64,linux/arm64
 
     - name: Build and push Agent image
@@ -34,7 +53,9 @@ jobs:
       with:
         context: ./agent
         push: true
-        tags: giladi17/openclaw-agent:latest
+        tags: |
+          giladi17/openclaw-agent:latest
+          giladi17/openclaw-agent:${{ github.sha }}
         platforms: linux/amd64,linux/arm64
 
   deploy:
@@ -49,6 +70,15 @@ jobs:
         username: ubuntu
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart deployment/openclaw-brain
-          sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout status deployment/openclaw-brain --timeout=120s
-          echo "✅ Deploy complete!"
+          set -e
+          K="sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
+          SHA=${{ github.sha }}
+          # Brain + ה-image שבו הוא מריץ סוכנים
+          $K set image deployment/openclaw-brain openclaw-brain=giladi17/openclaw-brain:$SHA
+          $K set env deployment/openclaw-brain AGENT_IMAGE=giladi17/openclaw-agent:$SHA
+          # סריקות בוקר/ערב
+          $K set image cronjob/openclaw-morning scheduler=giladi17/openclaw-agent:$SHA
+          $K set image cronjob/openclaw-evening scheduler=giladi17/openclaw-agent:$SHA
+          $K rollout status deployment/openclaw-brain --timeout=180s
+          echo "✅ Deployed $SHA"
+          # לחזרה לגרסה קודמת: kubectl rollout undo deployment/openclaw-brain

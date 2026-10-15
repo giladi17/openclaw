@@ -23,15 +23,17 @@ def get_stock_data(symbol: str) -> dict:
         "APCA-API-KEY-ID": ALPACA_API_KEY,
         "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
     }
-    # תאריך התחלה — 60 ימים אחורה
-    start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-    
-    url    = f"https://data.alpaca.markets/v2/stocks/{symbol}/bars"
-    params = {"timeframe": "1Day", "limit": 30, "start": start_date}
+    # 30 הנרות האחרונים: sort=desc כדי לקבל את הימים העדכניים ולא את הישנים בטווח,
+    # ואז הופכים חזרה לסדר כרונולוגי (ישן → חדש)
+    start_date = (datetime.now() - timedelta(days=70)).strftime("%Y-%m-%d")
 
-    response = requests.get(url, headers=headers, params=params)
+    url    = f"https://data.alpaca.markets/v2/stocks/{symbol}/bars"
+    params = {"timeframe": "1Day", "start": start_date, "limit": 30,
+              "sort": "desc", "feed": "iex"}
+
+    response = requests.get(url, headers=headers, params=params, timeout=15)
     data     = response.json()
-    bars     = data.get("bars", [])
+    bars     = list(reversed(data.get("bars") or []))
 
     if not bars:
         return {"error": f"לא נמצאו נתונים עבור {symbol}"}
@@ -129,4 +131,4 @@ async def run():
 
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(run())

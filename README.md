@@ -38,9 +38,9 @@ User (Telegram)
 | סוכן | תפקיד | טריגר |
 |------|--------|--------|
 | 🧠 **Brain** | מאזין ומנתב הודעות | תמיד פעיל |
-| 📊 **Analyst** | מנתח מניה (RSI, MACD, MA) | "נתח את AAPL" |
-| 💰 **Trader** | קנייה/מכירה דרך Alpaca | "קנה 5 מניות TSLA" |
-| 🔍 **Scanner** | סורק 20 מניות וקונה Top 3 | CronJob 9:30 EST |
+| 📊 **Analyst** | מנתח מניה (RSI, MA7, MA20) | "נתח את AAPL" |
+| 💰 **Trader** | קנייה/מכירה דרך Alpaca — עם כפתור אישור | "קנה 5 מניות TSLA" |
+| 🔍 **Scanner** | סורק 20 מניות וקונה עד 3 חדשות | CronJob 9:35 שעון ניו יורק |
 | 📈 **Backtest** | בודק אסטרטגיה על נתונים היסטוריים | "הרץ backtest" |
 | 🎯 **LDM Backtest** | בודק שיטת Dual Momentum | "הרץ LDM backtest" |
 | 🔬 **Researcher** | מחקר כללי | כל שאלה |
@@ -52,16 +52,19 @@ User (Telegram)
 ## ⏰ אוטומציה יומית
 
 ```
-09:30 EST — סריקת בוקר
-  ├── בודק SPY מול MA20 (פילטר שוק)
-  ├── סורק 20 מניות לפי RSI + MACD + נפח
-  ├── קונה Top 3 אוטומטית
+09:35 שעון ניו יורק — סריקת בוקר
+  ├── בודק SPY מול MA20 (פילטר שוק; אין נתונים → לא קונה)
+  ├── סורק 20 מניות לפי RSI + MA7/MA20 + נפח + מומנטום
+  ├── קונה עד 3 מניות חדשות (מדלג על מה שכבר בתיק, מקסימום 5 פוזיציות)
   └── שולח דוח לטלגרם
 
-15:45 EST — סריקת ערב
+15:45 שעון ניו יורק — סריקת ערב
   ├── בודק כל פוזיציה
   ├── מוכר אם רווח > 15% או הפסד > 10%
+  ├── מוכר פוזיציות שהסורק פתח אחרי 10 ימים
   └── שולח דוח ערב
+
+(ה-CronJobs משתמשים ב-timeZone: America/New_York — מתעדכן לבד בשעון קיץ/חורף)
 ```
 
 ---
@@ -70,14 +73,15 @@ User (Telegram)
 
 ### Swing Trading (אוטומטי)
 - **פילטר שוק:** SPY מעל MA20 → קונה, מתחת → לא קונה
-- **כניסה:** RSI 35-50 + MA7 > MA20 + MACD חיובי + נפח גבוה
-- **יציאה:** רווח > 15% או הפסד > 10%
-- **החזקה:** 2-10 ימים
+- **כניסה:** ציון ≥ 50 מתוך: RSI 30-50, MA7 > MA20, נפח פי 1.5 מהממוצע, עלייה יומית של 0-3%
+- **יציאה:** רווח > 15%, הפסד > 10%, או 10 ימים בתיק
+- **גודל:** עד 5 פוזיציות במקביל, בלי קנייה כפולה של אותה מניה
 
 ### LDM — Leveraged Dual Momentum
 - **בדיקה חודשית:** QQQ מול SMA200
 - **מעל SMA200:** קנה QLD (נאסד"ק x2)
 - **מתחת SMA200:** קנה BIL (אג"ח בטוח)
+- ה-backtest משווה מול קנה-והחזק של QQQ ו-QLD, עם עלות משוערת לכל החלפה
 
 ---
 
@@ -113,14 +117,14 @@ openclaw/
 │   ├── trader.py           # ביצוע עסקאות
 │   ├── scanner.py          # סריקת בוקר/ערב
 │   ├── backtest.py         # בדיקת אסטרטגיה היסטורית
-│   ├── ldm_backtest.py     # LDM Dual Momentum backtest
+│   ├── ldm_backtest.py     # LDM Dual Momentum backtest (3 שנים מול QQQ/QLD)
 │   ├── Dockerfile
 │   └── requirements.txt
 │
 ├── k8s/                    # ☸️ Kubernetes manifests
 │   ├── brain.yaml          # Brain deployment
 │   ├── redis.yaml          # Redis deployment
-│   ├── rbac.yaml           # ServiceAccount + permissions
+│   ├── rbac.yaml           # brain-sa (יוצר Jobs) + agent-sa (בלי הרשאות)
 │   ├── cronjob.yaml        # Morning + Evening CronJobs
 │   ├── network-policy.yaml
 │   └── quota.yaml
@@ -141,6 +145,14 @@ openclaw/
 - Alpaca Account (Paper Trading)
 - Telegram Bot Token
 - Groq API Key
+
+### מפתחות ב-AWS Secrets Manager
+הסוד `openclaw/secrets` (JSON) חייב להכיל:
+`TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`, `GROQ_API_KEY`, `ALPACA_API_KEY`, `ALPACA_SECRET_KEY`,
+`ALPACA_BASE_URL` (אופציונלי — ברירת מחדל Paper), `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
+
+`TELEGRAM_CHAT_ID` הוא גם רשימת המורשים — הבוט מתעלם מכל צ'אט אחר.
+אפשר כמה מזהים מופרדים בפסיק.
 
 ### התקנה
 ```bash
@@ -164,8 +176,8 @@ git push origin main
 
 ```
 נתח את מניית AAPL        → ניתוח טכני מלא
-קנה 5 מניות TSLA          → קנייה אוטומטית
-מכור 3 מניות AAPL         → מכירה אוטומטית
+קנה 5 מניות TSLA          → קנייה (אחרי לחיצה על ✅ אשר)
+מכור 3 מניות AAPL         → מכירה (אחרי לחיצה על ✅ אשר)
 מה הפוזיציות שלי?         → מצב התיק
 הרץ backtest              → backtest 6 חודשים
 הרץ LDM backtest          → LDM vs QQQ benchmark
@@ -192,16 +204,23 @@ git push origin main
 | אסטרטגיה | תקופה | תשואה |
 |----------|-------|--------|
 | Swing Trading | 18 חודשים | +24.4% |
-| LDM x2 | 3 שנים | בבדיקה |
+| LDM x2 | 3 שנים | `הרץ LDM backtest` בטלגרם |
+
+> ⚠️ ה-backtest קונה במחיר הסגירה של יום הסיגנל, לא כולל slippage, ורשימת המניות נבחרה בדיעבד —
+> התוצאות בפועל צפויות להיות נמוכות יותר. ביצועי עבר אינם מבטיחים תשואה עתידית.
 
 ---
 
 ## 🔒 אבטחה
 
 - אפס מפתחות בקוד — הכל ב-AWS Secrets Manager
-- RBAC מוגדר ב-Kubernetes
-- Network Policies מגבילות תעבורה
-- Docker images נבנים אוטומטית ב-GitHub Actions
+- הבוט מקבל פקודות רק מ-Chat ID מורשה
+- כל עסקה ידנית דורשת אישור בכפתור, עם תקרת כמות (`MAX_ORDER_QTY`)
+- RBAC מינימלי: ה-Brain יכול רק ליצור Jobs ב-namespace שלו; לסוכנים אין גישה ל-API
+- Jobs רצים עם `backoffLimit: 0` — פקודת מסחר לא נשלחת פעמיים בגלל retry
+- Kubernetes API פתוח רק מתוך ה-VPC (ומכתובות ב-`k8s_api_allowed_cidrs`)
+- Network Policies מוכנות — נאכפות רק עם CNI תומך (Calico/Canal; Flannel לא אוכף)
+- Docker images מתויגים לפי commit SHA — אפשר לדעת מה רץ ולחזור אחורה
 
 ---
 
@@ -209,4 +228,4 @@ git push origin main
 
 **Gilad** — Built from scratch on AWS + Kubernetes
 
-*OpenClaw — Where AI meets the Stock Market* 🦾📈
+*OpenClaw — Where AI meets the Stock Market* 🦾📈

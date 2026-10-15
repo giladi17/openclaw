@@ -16,19 +16,21 @@ resource "aws_security_group" "open_claw_sg" {
   description = "Security Group for Open-Claw K8s Cluster"
   vpc_id      = var.vpc_id
 
+  # SSH — רק מהכתובות ב-ssh_allowed_cidrs (ראה variables.tf)
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.ssh_allowed_cidrs
     description = "SSH"
   }
 
+  # Kubernetes API — מתוך ה-VPC, ובנוסף מהכתובות ב-k8s_api_allowed_cidrs (למשל ה-IP שלך ל-kubectl)
   ingress {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = concat(["172.31.0.0/16"], var.k8s_api_allowed_cidrs)
     description = "Kubernetes API Server"
   }
 
@@ -46,14 +48,6 @@ resource "aws_security_group" "open_claw_sg" {
     protocol    = "tcp"
     cidr_blocks = ["172.31.0.0/16"]
     description = "Kubelet API"
-  }
-
-  ingress {
-    from_port   = 30000
-    to_port     = 32767
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "NodePort Services"
   }
 
   ingress {
@@ -132,19 +126,22 @@ resource "aws_instance" "master" {
     kubectl taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule-
     kubeadm token create --print-join-command > /home/ubuntu/join-command.sh
     chmod +x /home/ubuntu/join-command.sh
-    aws secretsmanager get-secret-value --secret-id openclaw/secrets --region eu-central-1 --query SecretString --output text > /tmp/secret.json
-    TELEGRAM_TOKEN=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['TELEGRAM_TOKEN'])")
-    GROQ_API_KEY=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['GROQ_API_KEY'])")
-    DOCKERHUB_USERNAME=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['DOCKERHUB_USERNAME'])")
-    DOCKERHUB_TOKEN=$(python3 -c "import json; d=json.load(open('/tmp/secret.json')); print(d['DOCKERHUB_TOKEN'])")
-    kubectl create secret generic openclaw-secrets --from-literal=TELEGRAM_TOKEN=$TELEGRAM_TOKEN --from-literal=GROQ_API_KEY=$GROQ_API_KEY
-    kubectl create secret docker-registry dockerhub-secret --docker-username=$DOCKERHUB_USERNAME --docker-password=$DOCKERHUB_TOKEN
-    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/rbac.yaml
-    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/redis.yaml
-    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/brain.yaml
-    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/quota.yaml
-    kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/network-policy.yaml
-    rm /tmp/secret.json
+    umask 077
+    aws secretsmanager get-secret-value --secret-id ${var.secrets_id} --region ${var.secrets_region} --query SecretString --output text > /tmp/secret.json
+    get() { python3 -c "import json,sys; d=json.load(open('/tmp/secret.json')); print(d.get(sys.argv[1], sys.argv[2] if len(sys.argv)>2 else ''))" "$@"; }
+    # כל המפתחות שהסוכנים צריכים — כולל Alpaca ו-Chat ID שהיו חסרים קודם
+    kubectl create secret generic openclaw-secrets \
+      --from-literal=TELEGRAM_TOKEN="$(get TELEGRAM_TOKEN)" \
+      --from-literal=TELEGRAM_CHAT_ID="$(get TELEGRAM_CHAT_ID)" \
+      --from-literal=GROQ_API_KEY="$(get GROQ_API_KEY)" \
+      --from-literal=ALPACA_API_KEY="$(get ALPACA_API_KEY)" \
+      --from-literal=ALPACA_SECRET_KEY="$(get ALPACA_SECRET_KEY)" \
+      --from-literal=ALPACA_BASE_URL="$(get ALPACA_BASE_URL https://paper-api.alpaca.markets)"
+    kubectl create secret docker-registry dockerhub-secret --docker-username="$(get DOCKERHUB_USERNAME)" --docker-password="$(get DOCKERHUB_TOKEN)"
+    rm -f /tmp/secret.json
+    for f in rbac redis quota brain cronjob network-policy; do
+      kubectl apply -f https://raw.githubusercontent.com/giladi17/openclaw/main/k8s/$f.yaml
+    done
   EOF
 
   user_data_replace_on_change = true
@@ -204,4 +201,4 @@ resource "aws_instance" "worker" {
     Role    = "worker"
     Project = "open-claw"
   }
-}
+}

@@ -1,18 +1,29 @@
+# שעות לפי שעון ניו יורק — מתעדכן אוטומטית בין שעון קיץ לחורף (נתמך מ-K8s 1.27)
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: openclaw-morning
   namespace: default
 spec:
-  # כל יום שני-שישי בשעה 9:30 EST (14:30 UTC)
-  schedule: "30 14 * * 1-5"
+  # שני-שישי 9:35 — 5 דקות אחרי הפתיחה, כדי לא לקנות בתנודתיות של דקת הפתיחה
+  schedule: "35 9 * * 1-5"
+  timeZone: "America/New_York"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
   jobTemplate:
     spec:
-      ttlSecondsAfterFinished: 120
+      # בלי ניסיונות חוזרים — ניסיון שני יכול לקנות שוב את אותן מניות
+      backoffLimit: 0
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 3600
       template:
+        metadata:
+          labels:
+            app: openclaw-agent
         spec:
           restartPolicy: Never
-          serviceAccountName: brain-sa
+          serviceAccountName: agent-sa
+          automountServiceAccountToken: false
           imagePullSecrets:
           - name: dockerhub-secret
           containers:
@@ -67,15 +78,24 @@ metadata:
   name: openclaw-evening
   namespace: default
 spec:
-  # כל יום שני-שישי בשעה 15:45 EST (20:45 UTC)
-  schedule: "45 20 * * 1-5"
+  # שני-שישי 15:45 שעון ניו יורק — רבע שעה לפני הסגירה
+  schedule: "45 15 * * 1-5"
+  timeZone: "America/New_York"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
   jobTemplate:
     spec:
-      ttlSecondsAfterFinished: 120
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 3600
       template:
+        metadata:
+          labels:
+            app: openclaw-agent
         spec:
           restartPolicy: Never
-          serviceAccountName: brain-sa
+          serviceAccountName: agent-sa
+          automountServiceAccountToken: false
           imagePullSecrets:
           - name: dockerhub-secret
           containers:

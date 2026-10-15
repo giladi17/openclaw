@@ -1,12 +1,15 @@
+# ה-Brain צריך הרשאה ליצור Jobs — רק ב-namespace שלו (Role ולא ClusterRole)
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: brain-sa
+  namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: brain-role
+  namespace: default
 rules:
 - apiGroups: ["batch"]
   resources: ["jobs"]
@@ -16,14 +19,23 @@ rules:
   verbs: ["get","list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: brain-binding
+  namespace: default
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: brain-role
 subjects:
 - kind: ServiceAccount
   name: brain-sa
   namespace: default
+---
+# הסוכנים (Jobs + CronJobs) לא צריכים שום גישה ל-API של Kubernetes
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-sa
+  namespace: default
+automountServiceAccountToken: false
