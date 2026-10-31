@@ -6,6 +6,7 @@ import requests
 from datetime import datetime, timedelta
 from groq import Groq
 from telegram import Bot
+from tg import send, llm_to_markdown
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -247,10 +248,9 @@ async def run():
     logger.info(f"Backtest agent התעורר | task={TASK}")
     bot = Bot(token=TELEGRAM_TOKEN)
 
-    await bot.send_message(
+    await send(bot,
         chat_id=CHAT_ID,
-        text="⏳ *מריץ Backtest...*\nבודק את האסטרטגיה על 6 חודשים אחורה. זה ייקח 2-3 דקות.",
-        parse_mode="Markdown"
+        text="⏳ *מריץ Backtest...*\nבודק את האסטרטגיה על 6 חודשים אחורה. זה ייקח 2-3 דקות."
     )
 
     # 6 חודשים אחורה
@@ -305,9 +305,9 @@ _{results['start_date']} → {results['end_date']}_
         max_tokens=300
     )
 
-    message += f"\n\n🤖 *ניתוח AI:*\n{analysis.choices[0].message.content}"
+    message += f"\n\n🤖 *ניתוח AI:*\n{llm_to_markdown(analysis.choices[0].message.content)}"
 
-    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+    await send(bot, chat_id=CHAT_ID, text=message)
     logger.info("Backtest הושלם!")
 
 

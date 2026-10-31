@@ -6,6 +6,7 @@ import asyncio
 import logging
 from groq import Groq
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from tg import send
 import redis
 import requests
 
@@ -158,10 +159,9 @@ async def request_confirmation(bot: Bot, action: str, symbol: str, qty: int):
         InlineKeyboardButton("✅ אשר", callback_data=f"confirm:{order_id}"),
         InlineKeyboardButton("❌ בטל", callback_data=f"cancel:{order_id}"),
     ]])
-    await bot.send_message(
+    await send(bot,
         chat_id=CHAT_ID,
         text=f"{emoji} *אישור {verb}*\n\n{symbol} — {qty} מניות, במחיר שוק.\n\n⏳ תוקף האישור: 5 דקות.",
-        parse_mode="Markdown",
         reply_markup=keyboard
     )
 
@@ -233,7 +233,7 @@ async def run():
         logger.error(f"שגיאה: {e}", exc_info=True)
         message = f"❌ שגיאה: {str(e)[:200]}"
 
-    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+    await send(bot, chat_id=CHAT_ID, text=message)
     logger.info("תשובת trader נשלחה!")
 
 

@@ -4,6 +4,7 @@ import asyncio
 import logging
 from groq import Groq
 from telegram import Bot
+from tg import send, llm_to_markdown
 import requests
 from datetime import datetime, timedelta
 
@@ -112,7 +113,7 @@ async def run():
             ],
             max_tokens=500
         )
-        analysis      = analysis_response.choices[0].message.content
+        analysis      = llm_to_markdown(analysis_response.choices[0].message.content)
         signal_emoji  = {"BUY": "🟢", "SELL": "🔴", "HOLD": "🟡"}.get(stock_data["signal"], "⚪")
 
         message = f"""📊 *ניתוח {symbol}*
@@ -127,7 +128,7 @@ async def run():
 {analysis}"""
 
     bot = Bot(token=TELEGRAM_TOKEN)
-    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+    await send(bot, chat_id=CHAT_ID, text=message)
     logger.info("ניתוח נשלח!")
 
 

@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 import requests
 from groq import Groq
 from telegram import Bot
+from tg import send, llm_to_markdown
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -169,8 +170,7 @@ def run_ldm_backtest(years: int = YEARS) -> dict:
 async def run():
     logger.info("LDM backtest agent התעורר")
     bot = Bot(token=TELEGRAM_TOKEN)
-    await bot.send_message(chat_id=CHAT_ID, text=f"⏳ *מריץ LDM Backtest* על {YEARS} שנים אחורה...",
-                           parse_mode="Markdown")
+    await send(bot, chat_id=CHAT_ID, text=f"⏳ *מריץ LDM Backtest* על {YEARS} שנים אחורה...")
 
     r = await asyncio.to_thread(run_ldm_backtest)
     if "error" in r:
@@ -206,11 +206,11 @@ _עלות משוערת {COST_PCT}% לכל החלפה. ביצועי עבר אינ
             ],
             max_tokens=300
         )
-        message += f"\n\n🤖 *ניתוח AI:*\n{analysis.choices[0].message.content}"
+        message += f"\n\n🤖 *ניתוח AI:*\n{llm_to_markdown(analysis.choices[0].message.content)}"
     except Exception as e:
         logger.warning(f"ניתוח AI נכשל: {e}")
 
-    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+    await send(bot, chat_id=CHAT_ID, text=message)
     logger.info("LDM backtest הושלם!")
 
 

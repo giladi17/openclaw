@@ -4,6 +4,7 @@ import asyncio
 import logging
 from groq import Groq
 from telegram import Bot
+from tg import send
 import requests
 from datetime import datetime, timedelta
 
@@ -214,10 +215,9 @@ async def morning_scan(bot: Bot):
     market_ok = is_market_bullish()
     market_msg = "🟢 השוק במגמה חיובית" if market_ok else "🔴 השוק במגמה שלילית — לא קונה היום"
 
-    await bot.send_message(
+    await send(bot,
         chat_id=CHAT_ID,
-        text=f"🌅 *סריקת בוקר מתחילה...*\n{market_msg}\nסורק 20 מניות, זה ייקח כדקה.",
-        parse_mode="Markdown"
+        text=f"🌅 *סריקת בוקר מתחילה...*\n{market_msg}\nסורק 20 מניות, זה ייקח כדקה."
     )
 
     if not market_ok:
@@ -233,7 +233,7 @@ async def morning_scan(bot: Bot):
                 lines.append(f"{emoji} {pos.get('symbol')}: ${pl:.2f} ({pl_pct:.1f}%)")
             total_emoji = "🟢" if total_pl >= 0 else "🔴"
             lines.append(f"\n{total_emoji} *סה\"כ P&L: ${total_pl:.2f}*")
-            await bot.send_message(chat_id=CHAT_ID, text="\n".join(lines), parse_mode="Markdown")
+            await send(bot, chat_id=CHAT_ID, text="\n".join(lines))
         else:
             await bot.send_message(chat_id=CHAT_ID, text="📭 אין פוזיציות פתוחות כרגע.")
         return
@@ -261,7 +261,7 @@ async def morning_scan(bot: Bot):
             f"   💰 ${stock['price']} | RSI: {stock['rsi']} | שינוי: {stock['change_pct']}%\n"
         )
 
-    await bot.send_message(chat_id=CHAT_ID, text="\n".join(lines), parse_mode="Markdown")
+    await send(bot, chat_id=CHAT_ID, text="\n".join(lines))
 
     # מה כבר מוחזק או בדרך — כדי לא לקנות את אותה מניה שוב כל בוקר
     try:
@@ -312,10 +312,9 @@ async def morning_scan(bot: Bot):
         await bot.send_message(chat_id=CHAT_ID, text=f"ℹ️ התיק מלא ({MAX_POSITIONS} פוזיציות) — לא קונה היום.")
 
     if bought:
-        await bot.send_message(
+        await send(bot,
             chat_id=CHAT_ID,
-            text=f"✅ *קניתי אוטומטית:* {', '.join(bought)}\n2 מניות מכל אחת במחיר שוק.",
-            parse_mode="Markdown"
+            text=f"✅ *קניתי אוטומטית:* {', '.join(bought)}\n2 מניות מכל אחת במחיר שוק."
         )
 
 
@@ -326,7 +325,7 @@ async def evening_scan(bot: Bot):
     positions = get_current_positions()
 
     if not positions:
-        await bot.send_message(chat_id=CHAT_ID, text="🌆 *סריקת ערב:* אין פוזיציות פתוחות.", parse_mode="Markdown")
+        await send(bot, chat_id=CHAT_ID, text="🌆 *סריקת ערב:* אין פוזיציות פתוחות.")
         return
 
     to_sell = check_evening_positions(positions)
@@ -367,7 +366,7 @@ async def evening_scan(bot: Bot):
     if sold:
         lines.append(f"\n🔄 *מכרתי:* {', '.join(sold)}")
 
-    await bot.send_message(chat_id=CHAT_ID, text="\n".join(lines), parse_mode="Markdown")
+    await send(bot, chat_id=CHAT_ID, text="\n".join(lines))
 
 
 async def run():

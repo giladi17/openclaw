@@ -15,6 +15,7 @@ COPY scanner.py .
 COPY backtest.py .
 COPY ldm_backtest.py .
 COPY runner.py .
+COPY tg.py .
 
 ENV PATH=/root/.local/bin:$PATH
 
