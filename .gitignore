@@ -10,3 +10,5 @@ terraform/single-server/terraform.tfstate.backup
 *.auto.tfvars
 tfplan
 *.tfvars.disabled
+research/data/
+__pycache__/
