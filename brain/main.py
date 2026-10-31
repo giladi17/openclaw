@@ -12,6 +12,8 @@ import redis
 from groq import Groq
 
 logging.basicConfig(level=logging.INFO)
+# httpx רושם כל בקשה עם ה-URL המלא — שכולל את ה-token של הבוט
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # k8s   — כל משימה רצה כ-Kubernetes Job (הפריסה ב-AWS)
@@ -25,7 +27,7 @@ if RUNNER == "k8s":
 JOB_QUEUE = "agent_jobs"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL     = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 NAMESPACE      = os.environ.get("NAMESPACE", "default")
 # ה-CI מעדכן את זה לתגית של ה-commit, כך שה-Jobs רצים בדיוק על אותה גרסה של הקוד

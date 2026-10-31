@@ -167,7 +167,7 @@ docker compose logs -f      # לראות שהכל עלה
 
 - `brain` מאזין לטלגרם ודוחף משימות לתור ב-Redis (`RUNNER=queue`)
 - `runner` (`agent/runner.py`) מריץ כל משימה כתהליך נפרד, ומתזמן את סריקות הבוקר/ערב לפי שעון ניו יורק
-- עדכון גרסה: `git pull && docker compose up -d --build`
+- עדכון גרסה: אוטומטי — `deploy/auto-update.sh` רץ מ-cron כל 5 דקות, מושך commit חדש מ-`main` ומעדכן (לא באמצע משימה שרצה). לוג: `~/auto-update.log`
 
 ### שרת אחד ב-AWS (Terraform)
 `terraform/single-server` מרים שרת `t4g.small` אחד (בערך 15–17 דולר לחודש), מתקין Docker ומושך את הקוד מ-GitHub.

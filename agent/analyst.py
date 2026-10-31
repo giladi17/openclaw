@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN    = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID           = os.environ.get("CHAT_ID")
 TASK              = os.environ.get("TASK")
-GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL        = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 ALPACA_API_KEY    = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY")
@@ -132,4 +132,4 @@ async def run():
 
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(run())

@@ -89,6 +89,8 @@ resource "aws_instance" "bot" {
 
     sudo -u ubuntu git clone ${var.repo_url} /home/ubuntu/openclaw
     cd /home/ubuntu/openclaw
+    # עדכון אוטומטי: כל 5 דקות בודק אם יש commit חדש ב-main ומעדכן את הבוט
+    echo '*/5 * * * * ubuntu /home/ubuntu/openclaw/deploy/auto-update.sh >> /home/ubuntu/auto-update.log 2>&1' > /etc/cron.d/openclaw-update
 
     # אם יש גישה לסוד ב-Secrets Manager — כותבים .env ומפעילים את הבוט. אחרת ממלאים .env ידנית.
     umask 077
@@ -110,6 +112,12 @@ resource "aws_instance" "bot" {
   EOF
 
   user_data_replace_on_change = true
+
+  # בלי זה, כל גרסת Ubuntu חדשה או שינוי ב-user_data יגרמו ל-apply הבא (למשל עדכון IP של SSH)
+  # למחוק את השרת ולבנות חדש — והבוט ייפול עד שממלאים .env מחדש. החלפה מכוונת: terraform apply -replace=aws_instance.bot
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
 
   root_block_device {
     volume_size = 16

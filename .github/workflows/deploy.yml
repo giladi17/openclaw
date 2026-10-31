@@ -58,27 +58,5 @@ jobs:
           giladi17/openclaw-agent:${{ github.sha }}
         platforms: linux/amd64,linux/arm64
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Deploy to Kubernetes via SSH
-      uses: appleboy/ssh-action@v1
-      with:
-        host: ${{ secrets.MASTER_IP }}
-        username: ubuntu
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          set -e
-          K="sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
-          SHA=${{ github.sha }}
-          # Brain + ה-image שבו הוא מריץ סוכנים
-          $K set image deployment/openclaw-brain openclaw-brain=giladi17/openclaw-brain:$SHA
-          $K set env deployment/openclaw-brain AGENT_IMAGE=giladi17/openclaw-agent:$SHA
-          # סריקות בוקר/ערב
-          $K set image cronjob/openclaw-morning scheduler=giladi17/openclaw-agent:$SHA
-          $K set image cronjob/openclaw-evening scheduler=giladi17/openclaw-agent:$SHA
-          $K rollout status deployment/openclaw-brain --timeout=180s
-          echo "✅ Deployed $SHA"
-          # לחזרה לגרסה קודמת: kubectl rollout undo deployment/openclaw-brain
+  # אין כאן שלב deploy: השרת מושך גרסה חדשה מ-main בעצמו כל 5 דקות (deploy/auto-update.sh).
+  # ה-images ב-DockerHub משמשים רק לפריסת K8s (k8s/).

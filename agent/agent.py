@@ -7,13 +7,15 @@ from telegram import Bot
 import redis
 
 logging.basicConfig(level=logging.INFO)
+# httpx רושם כל בקשה עם ה-URL המלא — שכולל את ה-token של הבוט
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID        = os.environ.get("CHAT_ID")
 TASK           = os.environ.get("TASK")
 ROLE           = os.environ.get("ROLE")
-GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL     = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 ROLE_PROMPTS = {
@@ -79,4 +81,4 @@ async def run():
     )
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(run())
