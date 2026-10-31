@@ -118,7 +118,9 @@ resource "aws_instance" "bot" {
 
 # התראה במייל כשיש חיוב אמיתי. העלות כאן היא אחרי קיזוז קרדיטים (ברירת המחדל של AWS Budgets),
 # כך שכל עוד הקרדיט מכסה — אין התראה. אחרי שהקרדיט נגמר או פג — מקבלים מייל.
+# נוצרת רק אם budget_email מוגדר (אם כבר יצרת התראה ידנית בקונסולה — השאר ריק).
 resource "aws_budgets_budget" "monthly" {
+  count        = var.budget_email != "" ? 1 : 0
   name         = "openclaw-monthly"
   budget_type  = "COST"
   limit_amount = var.monthly_budget_usd

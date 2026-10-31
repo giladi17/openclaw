@@ -170,15 +170,19 @@ docker compose logs -f      # לראות שהכל עלה
 - עדכון גרסה: `git pull && docker compose up -d --build`
 
 ### שרת אחד ב-AWS (Terraform)
-`terraform/single-server` מרים שרת `t4g.small` אחד (בערך 15–17 דולר לחודש), מתקין Docker, מושך את הקוד מ-GitHub,
-ואם יש גישה לסוד ב-Secrets Manager — כותב `.env` ומפעיל את הבוט לבד. בנוסף נוצרת התראת תקציב במייל
-כשיש חיוב אמיתי (אחרי קיזוז קרדיטים).
+`terraform/single-server` מרים שרת `t4g.small` אחד (בערך 15–17 דולר לחודש), מתקין Docker ומושך את הקוד מ-GitHub.
 
 ```bash
 cd terraform/single-server
-echo 'budget_email = "you@example.com"' > email.auto.tfvars   # לא נכנס ל-git
 terraform init && terraform apply
+# כמה דקות אחרי — מעתיקים את ה-.env המקומי לשרת ומפעילים
+scp -i ~/.ssh/Gilad-agent.pem ../../.env ubuntu@<IP>:~/openclaw/.env
+ssh -i ~/.ssh/Gilad-agent.pem ubuntu@<IP> "cd openclaw && chmod 600 .env && docker compose up -d --build"
 ```
+
+אופציונלי:
+- `budget_email` — יוצר התראת תקציב במייל על חיוב אמיתי (אחרי קיזוז קרדיטים). שמים אותו ב-`email.auto.tfvars` (לא נכנס ל-git).
+- `instance_profile` — אם המפתחות שמורים ב-Secrets Manager (`openclaw/secrets`), השרת כותב `.env` ומפעיל את הבוט לבד.
 
 > השרת מושך את הקוד מ-`main` — צריך לעשות push לפני `apply`.
 > אסור להריץ את הבוט בשני מקומות במקביל (Telegram מחזיר Conflict, ויש סכנה לקנייה כפולה).

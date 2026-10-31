@@ -25,9 +25,9 @@ variable "instance_type" {
 }
 
 variable "instance_profile" {
-  description = "IAM instance profile עם הרשאת קריאה לסוד. ריק = בלי, ואז ממלאים .env ידנית"
+  description = "IAM instance profile עם הרשאת קריאה לסוד ב-Secrets Manager. ריק = בלי, ואז ממלאים .env ידנית"
   type        = string
-  default     = "openclaw-ec2-profile"
+  default     = ""
 }
 
 variable "repo_url" {
@@ -55,12 +55,13 @@ variable "ssh_allowed_cidrs" {
 }
 
 variable "budget_email" {
-  description = "לאן לשלוח התראה על חיוב אמיתי (לא נשמר ב-git — ראה README)"
+  description = "לאן לשלוח התראה על חיוב אמיתי (לא נשמר ב-git — ראה README). ריק = לא ליצור התראה"
   type        = string
+  default     = ""
 }
 
 variable "monthly_budget_usd" {
   description = "התראה כשהחיוב האמיתי בחודש (אחרי קרדיטים) עובר את הסכום הזה"
   type        = string
-  default     = "3"
+  default     = "5"
 }
