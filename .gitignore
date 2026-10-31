@@ -4,3 +4,7 @@ terraform/terraform.tfstate.backup
 __pycache__/
 *.pyc
 .env
+terraform/single-server/.terraform/
+terraform/single-server/terraform.tfstate
+terraform/single-server/terraform.tfstate.backup
+*.auto.tfvars

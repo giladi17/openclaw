@@ -8,15 +8,21 @@ import uuid
 from pathlib import Path
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from kubernetes import client, config
 import redis
 from groq import Groq
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-config.load_incluster_config()
-k8s = client.BatchV1Api()
+# k8s   — כל משימה רצה כ-Kubernetes Job (הפריסה ב-AWS)
+# queue — המשימה נכנסת לתור ב-Redis, ו-agent/runner.py מריץ אותה (docker compose, בלי K8s)
+RUNNER = os.environ.get("RUNNER", "k8s")
+if RUNNER == "k8s":
+    from kubernetes import client, config
+    config.load_incluster_config()
+    k8s = client.BatchV1Api()
+
+JOB_QUEUE = "agent_jobs"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
@@ -83,7 +89,7 @@ def save_job_status(job_id: str, chat_id: int, agent_type: str, status: str):
     redis_client.setex(key, 3600, json.dumps(data))
 
 
-def secret_env(name: str) -> client.V1EnvVar:
+def secret_env(name: str) -> "client.V1EnvVar":
     return client.V1EnvVar(
         name=name,
         value_from=client.V1EnvVarSource(
@@ -95,6 +101,14 @@ def secret_env(name: str) -> client.V1EnvVar:
 def create_agent_job(task: str, agent_type: str, chat_id: int, extra_env: dict | None = None):
     job_id = uuid.uuid4().hex[:5]
     save_job_status(job_id, chat_id, agent_type, "running")
+
+    if RUNNER == "queue":
+        # המפתחות (Alpaca, Telegram וכו') לא עוברים בתור — ה-runner מקבל אותם מה-.env שלו
+        job_env = {"ROLE": agent_type, "TASK": task, "CHAT_ID": str(chat_id), "JOB_ID": job_id}
+        job_env.update({k: str(v) for k, v in (extra_env or {}).items()})
+        redis_client.rpush(JOB_QUEUE, json.dumps({"env": job_env, "created": time.time()}))
+        logger.info(f"משימה נכנסה לתור: {agent_type} למשימה: {task}")
+        return
 
     env = [
         client.V1EnvVar(name="ROLE",    value=agent_type),

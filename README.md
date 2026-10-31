@@ -154,7 +154,36 @@ openclaw/
 `TELEGRAM_CHAT_ID` הוא גם רשימת המורשים — הבוט מתעלם מכל צ'אט אחר.
 אפשר כמה מזהים מופרדים בפסיק.
 
-### התקנה
+### התקנה זולה — docker compose (בלי Kubernetes, בלי AWS)
+שרת אחד קטן מספיק: Oracle Cloud Always Free (חינם), VPS של כמה יורו, או מחשב בבית שדולק תמיד.
+הבוט רק יוצא החוצה (לטלגרם ול-Alpaca), כך שלא צריך לפתוח פורטים.
+
+```bash
+git clone https://github.com/giladi17/openclaw.git && cd openclaw
+cp .env.example .env        # למלא מפתחות
+docker compose up -d --build
+docker compose logs -f      # לראות שהכל עלה
+```
+
+- `brain` מאזין לטלגרם ודוחף משימות לתור ב-Redis (`RUNNER=queue`)
+- `runner` (`agent/runner.py`) מריץ כל משימה כתהליך נפרד, ומתזמן את סריקות הבוקר/ערב לפי שעון ניו יורק
+- עדכון גרסה: `git pull && docker compose up -d --build`
+
+### שרת אחד ב-AWS (Terraform)
+`terraform/single-server` מרים שרת `t4g.small` אחד (בערך 15–17 דולר לחודש), מתקין Docker, מושך את הקוד מ-GitHub,
+ואם יש גישה לסוד ב-Secrets Manager — כותב `.env` ומפעיל את הבוט לבד. בנוסף נוצרת התראת תקציב במייל
+כשיש חיוב אמיתי (אחרי קיזוז קרדיטים).
+
+```bash
+cd terraform/single-server
+echo 'budget_email = "you@example.com"' > email.auto.tfvars   # לא נכנס ל-git
+terraform init && terraform apply
+```
+
+> השרת מושך את הקוד מ-`main` — צריך לעשות push לפני `apply`.
+> אסור להריץ את הבוט בשני מקומות במקביל (Telegram מחזיר Conflict, ויש סכנה לקנייה כפולה).
+
+### התקנה ב-AWS עם Kubernetes
 ```bash
 # 1. Clone
 git clone https://github.com/giladi17/openclaw.git
