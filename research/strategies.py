@@ -220,4 +220,105 @@ class Donchian(Strategy):
         return ind["close"] < ind["lo_out"]
 
 
-STRATEGIES = {cls.name: cls for cls in (Baseline, BaselineEqual, RSI2, Momentum, Minervini, Donchian)}
+def month_ends(index: pd.DatetimeIndex) -> pd.Series:
+    """True ביום המסחר האחרון בכל חודש"""
+    period = pd.Series(index.to_period("M"), index=index)
+    return period != period.shift(-1)
+
+
+class Rotation(Strategy):
+    """בסיס לאסטרטגיות חודשיות על ETF-ים: בסוף כל חודש targets() קובע מה מחזיקים; כל השאר נמכר"""
+    max_new_per_day = 99
+    sectors = ["XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLI", "XLB", "XLU", "XLRE", "XLC"]
+
+    def indicators(self, df):
+        ind = df.copy()
+        c   = df["close"]
+        ind["sma200"] = sma(c, 200)
+        for n in (21, 63, 126, 252):
+            ind[f"r{n}"] = c / c.shift(n) - 1
+        return ind
+
+    def entry_score(self, ind):
+        return pd.Series(np.nan, index=ind.index)
+
+    @staticmethod
+    def col(panels, name: str) -> pd.DataFrame:
+        return pd.DataFrame({sym: ind[name] for sym, ind in panels["ind"].items()})
+
+    def targets(self, panels) -> pd.DataFrame:
+        raise NotImplementedError
+
+    def cross_section(self, panels):
+        me  = month_ends(panels["close"].index)
+        tgt = self.targets(panels).reindex(columns=panels["close"].columns).fillna(False).astype(bool)
+        panels["exit"]  = (~tgt).astype(float).mul(me.astype(float), axis=0)
+        panels["score"] = pd.DataFrame(1.0, index=tgt.index, columns=tgt.columns).where(tgt).where(me, axis=0)
+
+
+class TrendSPY(Rotation):
+    """Faber: מחזיקים SPY כשהוא מעל SMA200 (בדיקה בסוף חודש), אחרת BIL (פיקדון דולרי)"""
+    name          = "trend_spy"
+    max_positions = 1
+    asset         = "SPY"
+
+    def targets(self, panels):
+        up  = self.col(panels, "close")[self.asset] > self.col(panels, "sma200")[self.asset]
+        out = pd.DataFrame(False, index=up.index, columns=[self.asset, "BIL"])
+        out[self.asset], out["BIL"] = up, ~up
+        return out
+
+
+class TrendQQQ(TrendSPY):
+    """כמו trend_spy, על QQQ (נאסד"ק 100)"""
+    name  = "trend_qqq"
+    asset = "QQQ"
+
+
+class GEM(Rotation):
+    """Antonacci Dual Momentum: אם SPY עלה ב-12 חודשים יותר מ-BIL — מחזיקים את החזק מבין SPY ו-EFA (חו"ל), אחרת IEF (אג"ח)"""
+    name          = "gem"
+    max_positions = 1
+
+    def targets(self, panels):
+        r   = self.col(panels, "r252")
+        out = pd.DataFrame(False, index=r.index, columns=["SPY", "EFA", "IEF"])
+        risk_on = r["SPY"] > r["BIL"]
+        out["SPY"] = risk_on & (r["SPY"] >= r["EFA"])
+        out["EFA"] = risk_on & (r["EFA"] > r["SPY"])
+        out["IEF"] = ~risk_on & r["SPY"].notna()
+        return out
+
+
+class SectorMomentum(Rotation):
+    """Faber Relative Strength: 3 הסקטורים עם המומנטום הגבוה (ממוצע 3/6/12 חודשים), רק אם הם מעל SMA200; השאר במזומן"""
+    name          = "sector_mom"
+    max_positions = 3
+    pool          = "sectors"
+
+    def targets(self, panels):
+        syms  = self.sectors if self.pool == "sectors" else [s for s in panels["ind"] if s != "BIL"]
+        mom   = (self.col(panels, "r63") + self.col(panels, "r126") + self.col(panels, "r252"))[syms] / 3
+        above = (self.col(panels, "close") > self.col(panels, "sma200"))[syms]
+        top   = mom.rank(axis=1, ascending=False) <= self.max_positions
+        return top & above
+
+
+class AssetMomentum(SectorMomentum):
+    """כמו sector_mom, על כל ה-ETF-ים (סקטורים, מדדים, חו"ל, אג"ח, זהב) — 5 החזקים"""
+    name          = "asset_mom"
+    max_positions = 5
+    pool          = "all"
+
+
+class EqualHold(Rotation):
+    """ביקורת: קונים את כל הרשימה במשקל שווה ומחזיקים. אסטרטגיה על אותה רשימה צריכה לנצח את זה — אחרת היתרון בא מהרשימה"""
+    name          = "equal_hold"
+    max_positions = 103   # כמספר המניות ב-sp100
+
+    def targets(self, panels):
+        return self.col(panels, "close").notna()
+
+
+STRATEGIES = {cls.name: cls for cls in (Baseline, BaselineEqual, RSI2, Momentum, Minervini, Donchian,
+                                        TrendSPY, TrendQQQ, GEM, SectorMomentum, AssetMomentum, EqualHold)}

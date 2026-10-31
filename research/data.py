@@ -22,6 +22,9 @@ UNIVERSES = {
     # רשימת המעקב של הבוט — נבחרה בדיעבד (מניות צמיחה שעלו), לכן תוצאות עליה מנופחות
     "watchlist": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AMD", "NFLX", "CRM",
                   "SHOP", "SQ", "COIN", "PLTR", "UBER", "SNAP", "SPOT", "ZM", "RBLX", "PYPL"],
+    # ETF-ים: 11 סקטורים של S&P 500 + מדדים, חו"ל, אג"ח, זהב ופיקדון (BIL). אין כאן "בחירה בדיעבד" של מניות
+    "etf": ["XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLI", "XLB", "XLU", "XLRE", "XLC",
+            "SPY", "QQQ", "IWM", "EFA", "EEM", "TLT", "IEF", "GLD", "BIL"],
     # S&P 100 לפי ההרכב הנוכחי — רחב יותר, אבל עדיין עם survivorship bias (מי שנפל מהמדד לא כאן)
     "sp100": ["AAPL", "ABBV", "ABT", "ACN", "ADBE", "AIG", "AMD", "AMGN", "AMT", "AMZN", "AVGO", "AXP",
               "BA", "BAC", "BK", "BKNG", "BLK", "BMY", "BRK.B", "C", "CAT", "CHTR", "CL", "CMCSA", "COF",

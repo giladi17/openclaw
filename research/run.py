@@ -48,6 +48,7 @@ def main():
     p.add_argument("--periods", nargs="+", default=["is", "oos"], choices=["is", "oos"],
                    help="is = 2016–2022 (פיתוח), oos = 2023→ (בדיקה). כשמכווננים פרמטרים — רק is")
     p.add_argument("--save", help="שם קובץ ב-research/results/ לשמירת הדוח")
+    p.add_argument("--capital", type=float, default=CAPITAL, help="הון התחלתי (גדול = פחות עיגול של מניות שלמות)")
     p.add_argument("--refresh", action="store_true", help="להוריד נתונים מחדש")
     p.add_argument("--list", action="store_true")
     args = p.parse_args()
@@ -71,9 +72,9 @@ def main():
         for key, (period, (start, end)) in zip(("is", "oos"), PERIODS.items()):
             if key not in args.periods:
                 continue
-            rows = [("SPY buy & hold", metrics.summarize(metrics.buy_and_hold(spy["close"], start, end, CAPITAL)))]
+            rows = [("SPY buy & hold", metrics.summarize(metrics.buy_and_hold(spy["close"], start, end, args.capital)))]
             for spec, (strat, panels) in built.items():
-                res = engine.run(strat, panels, start, end, CAPITAL)
+                res = engine.run(strat, panels, start, end, args.capital)
                 rows.append((spec, metrics.summarize(res.equity, res.trades, res.exposure)))
             title = f"### {universe} — {period}"
             print(title + "\n\n" + metrics.table(rows) + "\n")

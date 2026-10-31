@@ -41,8 +41,10 @@ def build_panels(strategy, data: dict[str, pd.DataFrame], spy: pd.DataFrame) -> 
     calendar = spy.index
     cols     = list(data)
     panels   = {k: pd.DataFrame(index=calendar, columns=cols, dtype=float) for k in ("open", "close", "score", "exit")}
+    panels["ind"] = {}
     for sym, df in data.items():
         ind = strategy.indicators(df).reindex(calendar)
+        panels["ind"][sym]   = ind
         panels["open"][sym]  = ind["open"]
         panels["close"][sym] = ind["close"]
         panels["score"][sym] = strategy.entry_score(ind)
