@@ -13,7 +13,8 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID        = os.environ.get("CHAT_ID")
 TASK           = os.environ.get("TASK")
 ROLE           = os.environ.get("ROLE")
-GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL     = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 ROLE_PROMPTS = {
     "researcher": "אתה סוכן מחקר מומחה. תחקור את הנושא ותחזיר תשובה מפורטת ומדויקת.",
@@ -60,7 +61,7 @@ async def run():
     conversation.append({"role": "user", "content": TASK})
 
     response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=conversation
     )
     result = response.choices[0].message.content

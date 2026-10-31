@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN    = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID           = os.environ.get("CHAT_ID")
 TASK              = os.environ.get("TASK")
-GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL        = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 ALPACA_API_KEY    = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY")
 
@@ -88,7 +89,7 @@ async def run():
 
     # חילוץ שם המניה
     extract_response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": "Extract only the stock ticker symbol from the text. Return ONLY the ticker in uppercase, nothing else. Example: AAPL"},
             {"role": "user", "content": TASK}
@@ -104,7 +105,7 @@ async def run():
         message = f"❌ {stock_data['error']}"
     else:
         analysis_response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "אתה אנליסט מניות מומחה. נתח את הנתונים ותן המלצה ברורה. ענה בעברית."},
                 {"role": "user", "content": f"נתח את המניה {symbol} על בסיס הנתונים: {json.dumps(stock_data, ensure_ascii=False)}"}

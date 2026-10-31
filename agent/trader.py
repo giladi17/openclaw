@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN    = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID           = os.environ.get("CHAT_ID")
 TASK              = os.environ.get("TASK")
-GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL        = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 ALPACA_API_KEY    = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY")
 ALPACA_BASE_URL   = os.environ.get("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
@@ -42,7 +43,7 @@ def parse_trade_intent(task: str) -> dict:
     """
     groq_client = Groq(api_key=GROQ_API_KEY)
     response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=[
             {
                 "role": "system",

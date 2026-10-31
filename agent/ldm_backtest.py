@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 TELEGRAM_TOKEN    = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID           = os.environ.get("CHAT_ID")
-GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL        = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 ALPACA_API_KEY    = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY")
 
@@ -198,7 +199,7 @@ _עלות משוערת {COST_PCT}% לכל החלפה. ביצועי עבר אינ
     try:
         groq_client = Groq(api_key=GROQ_API_KEY)
         analysis = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "אתה אנליסט כמותי. נתח בקצרה (3 משפטים, בעברית) את תוצאות ה-backtest: תשואה מול סיכון, ומה החולשה העיקרית של האסטרטגיה."},
                 {"role": "user", "content": json.dumps(r, ensure_ascii=False)}

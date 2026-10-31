@@ -25,7 +25,8 @@ if RUNNER == "k8s":
 JOB_QUEUE = "agent_jobs"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL     = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 NAMESPACE      = os.environ.get("NAMESPACE", "default")
 # ה-CI מעדכן את זה לתגית של ה-commit, כך שה-Jobs רצים בדיוק על אותה גרסה של הקוד
 AGENT_IMAGE    = os.environ.get("AGENT_IMAGE", "giladi17/openclaw-agent:latest")
@@ -48,7 +49,7 @@ VALID_AGENTS = ["coder", "researcher", "summarizer", "analyst", "trader", "backt
 
 def decide_agent(message: str) -> str:
     response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=[
             {
                 "role": "system",

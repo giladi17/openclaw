@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN    = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID           = os.environ.get("CHAT_ID")
 TASK              = os.environ.get("TASK", "backtest")
-GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY      = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL        = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 ALPACA_API_KEY    = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY")
 
@@ -296,7 +297,7 @@ _{results['start_date']} → {results['end_date']}_
     # ניתוח AI של התוצאות
     groq_client = Groq(api_key=GROQ_API_KEY)
     analysis    = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": "אתה אנליסט מסחר מומחה. נתח את תוצאות ה-backtest ותן המלצות לשיפור האסטרטגיה. ענה בעברית, 3-4 משפטים."},
             {"role": "user",   "content": f"תוצאות backtest: {json.dumps(results, ensure_ascii=False)}"}

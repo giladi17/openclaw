@@ -4,6 +4,6 @@ output "public_ip" {
 }
 
 output "ssh_command" {
-  value       = "ssh -i ~/.ssh/${var.key_name}.pem ubuntu@${aws_instance.bot.public_ip}"
+  value       = "ssh -i ${trimsuffix(var.public_key_path, ".pub")} ubuntu@${aws_instance.bot.public_ip}"
   description = "פקודת SSH לשרת"
 }

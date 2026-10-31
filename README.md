@@ -95,7 +95,7 @@ User (Telegram)
 | 🐳 Containers | Docker, DockerHub |
 | 🔄 CI/CD | GitHub Actions |
 | 🐍 Backend | Python 3.11, asyncio |
-| 🤖 AI | Groq API (llama-3.3-70b-versatile) |
+| 🤖 AI | Groq API (qwen/qwen3.8-27b — אפשר להחליף עם GROQ_MODEL) |
 | 📈 מסחר | Alpaca Markets API |
 | 💬 Messaging | Telegram Bot API |
 | 🗃️ Cache | Redis |
@@ -176,8 +176,8 @@ docker compose logs -f      # לראות שהכל עלה
 cd terraform/single-server
 terraform init && terraform apply
 # כמה דקות אחרי — מעתיקים את ה-.env המקומי לשרת ומפעילים
-scp -i ~/.ssh/Gilad-agent.pem ../../.env ubuntu@<IP>:~/openclaw/.env
-ssh -i ~/.ssh/Gilad-agent.pem ubuntu@<IP> "cd openclaw && chmod 600 .env && docker compose up -d --build"
+scp -i ~/.ssh/openclaw ../../.env ubuntu@<IP>:~/openclaw/.env
+ssh -i ~/.ssh/openclaw ubuntu@<IP> "cd openclaw && chmod 600 .env && docker compose up -d --build"
 ```
 
 אופציונלי:

@@ -13,9 +13,10 @@ variable "subnet_id" {
   type        = string
 }
 
-variable "key_name" {
-  description = "Key Pair Name"
+variable "public_key_path" {
+  description = "המפתח הציבורי ל-SSH שיותקן בשרת"
   type        = string
+  default     = "~/.ssh/openclaw.pub"
 }
 
 variable "instance_type" {

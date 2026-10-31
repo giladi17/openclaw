@@ -56,12 +56,18 @@ data "aws_ami" "ubuntu_arm" {
   }
 }
 
+# המפתח הציבורי עולה ל-AWS; הפרטי נשאר רק במחשב שלך (ssh-keygen -t ed25519 -f ~/.ssh/openclaw)
+resource "aws_key_pair" "openclaw" {
+  key_name   = "openclaw"
+  public_key = file(pathexpand(var.public_key_path))
+}
+
 resource "aws_instance" "bot" {
   ami                         = data.aws_ami.ubuntu_arm.id
   instance_type               = var.instance_type
   subnet_id                   = var.subnet_id
   vpc_security_group_ids      = [aws_security_group.openclaw.id]
-  key_name                    = var.key_name
+  key_name                    = aws_key_pair.openclaw.key_name
   iam_instance_profile        = var.instance_profile != "" ? var.instance_profile : null
   associate_public_ip_address = true
 
