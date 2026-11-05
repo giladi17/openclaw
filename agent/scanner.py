@@ -40,6 +40,9 @@ HEADERS = {
 NY            = ZoneInfo("America/New_York")
 SECTORS       = ["XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLI", "XLB", "XLU", "XLRE", "XLC"]
 MAX_POSITIONS = 3
+# תחילת הניסוי בחשבון ה-Paper — לחישוב "התיק מול SPY" בסקירה השבועית
+EXPERIMENT_START = date.fromisoformat(os.environ.get("EXPERIMENT_START", "2026-11-02"))
+START_EQUITY     = float(os.environ.get("START_EQUITY", "20000"))
 LOOKBACKS     = (63, 126, 252)   # 3, 6, 12 חודשי מסחר
 TREND_DAYS    = 200
 
@@ -162,6 +165,22 @@ def index_line(symbol: str) -> str:
     return f"{'🟢' if chg >= 0 else '🔴'} {symbol}: {chg * 100:+.1f}% אתמול · {trend}ממוצע 200 · {dd * 100:.1f}% מהשיא השנתי"
 
 
+def experiment_line() -> str:
+    """התיק מול SPY מאז תחילת הניסוי: שניהם לפי הסגירה האחרונה (SPY נקנה בפתיחה של יום ההתחלה, כמו התיק)"""
+    resp = requests.get(f"{ALPACA_BASE_URL}/v2/account", headers=HEADERS, timeout=15)
+    resp.raise_for_status()
+    port   = float(resp.json()["last_equity"]) / START_EQUITY - 1
+    params = {"timeframe": "1Day", "start": EXPERIMENT_START.isoformat(), "adjustment": "all", "feed": "iex"}
+    resp   = requests.get("https://data.alpaca.markets/v2/stocks/SPY/bars", headers=HEADERS, params=params, timeout=15)
+    resp.raise_for_status()
+    today = datetime.now(NY).date().isoformat()
+    bars  = [b for b in resp.json().get("bars") or [] if b["t"][:10] < today]
+    spy   = bars[-1]["c"] / bars[0]["o"] - 1
+    diff  = (port - spy) * 100
+    return (f"🧪 *הניסוי מאז {EXPERIMENT_START:%d.%m}:* התיק {port * 100:+.1f}% · SPY {spy * 100:+.1f}% "
+            f"→ {'🟢' if diff >= 0 else '🔴'} {diff:+.1f} נק' מול SPY")
+
+
 def outlook() -> tuple[list[dict], list[str], set[str], list[str], list[str]]:
     """הדירוג עכשיו, מול מה שבתיק: מה ייצא ומה ייכנס אם הדירוג יישאר כך עד הסבב"""
     rows     = rank_sectors(include_today=False)
@@ -205,6 +224,10 @@ async def weekly_overview(bot: Bot, today: date):
         lines += [index_line("SPY"), index_line("QQQ"), ""]
     except Exception as e:
         logger.warning(f"נתוני מדדים נכשלו: {e}")
+    try:
+        lines += [experiment_line(), ""]
+    except Exception as e:
+        logger.warning(f"השוואה ל-SPY נכשלה: {e}")
 
     try:
         rows, targets, held, leaving, entering = outlook()
