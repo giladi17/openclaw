@@ -7,7 +7,9 @@
 תזמון, כמו ב-backtest (research/strategies.py: SectorMomentum):
 - יום המסחר האחרון בחודש, 15:45 — מוכרים סקטורים שיצאו מהרשימה
 - יום המסחר הראשון בחודש, 9:35  — קונים סקטורים חדשים ברשימה, שליש מהתיק לכל אחד
-- בכל ערב — דוח תיק. מניות שאינן ETF של סקטור (למשל קנייה ידנית) — לא נוגעים בהן
+- יום המסחר הראשון בשבוע — סקירה שבועית; שאר הבקרים — התראה רק אם התחזית לסבב השתנתה
+- בכל ערב — דוח תיק
+- מניות שאינן ETF של סקטור (למשל קנייה ידנית) — לא נוגעים בהן
 """
 import os
 import asyncio
@@ -15,6 +17,7 @@ import logging
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import redis
 import requests
 from telegram import Bot
 from tg import send
@@ -74,12 +77,22 @@ def pick_targets(rows: list[dict]) -> list[str]:
     return [r["symbol"] for r in rows[:MAX_POSITIONS] if r["above"]]
 
 
-def trading_day_type(today: date) -> str:
-    """closed / first / last / first_and_last / regular — לפי לוח המסחר של Alpaca (כולל חגים)"""
-    params = {"start": (today - timedelta(days=10)).isoformat(), "end": (today + timedelta(days=10)).isoformat()}
+def trading_days(start: date, end: date) -> list[date]:
+    params = {"start": start.isoformat(), "end": end.isoformat()}
     resp   = requests.get(f"{ALPACA_BASE_URL}/v2/calendar", headers=HEADERS, params=params, timeout=15)
     resp.raise_for_status()
-    days = [datetime.strptime(d["date"], "%Y-%m-%d").date() for d in resp.json()]
+    return [datetime.strptime(d["date"], "%Y-%m-%d").date() for d in resp.json()]
+
+
+def next_rebalance(today: date) -> date:
+    """יום המסחר האחרון בחודש הנוכחי — אז נבדק הסבב הבא"""
+    days = [d for d in trading_days(today, today + timedelta(days=40)) if d.month == today.month]
+    return days[-1] if days else today
+
+
+def trading_day_type(today: date) -> str:
+    """closed / first / last / first_and_last / regular — לפי לוח המסחר של Alpaca (כולל חגים)"""
+    days = trading_days(today - timedelta(days=10), today + timedelta(days=10))
     if today not in days:
         return "closed"
     i     = days.index(today)
@@ -141,11 +154,100 @@ def sell_non_targets(positions: list, targets: list[str]) -> list[str]:
     return sold
 
 
+def index_line(symbol: str) -> str:
+    c     = get_closes(symbol, include_today=False)
+    chg   = c[-1] / c[-2] - 1
+    trend = "מעל " if c[-1] > sum(c[-TREND_DAYS:]) / TREND_DAYS else "מתחת ל"
+    dd    = c[-1] / max(c[-252:]) - 1
+    return f"{'🟢' if chg >= 0 else '🔴'} {symbol}: {chg * 100:+.1f}% אתמול · {trend}ממוצע 200 · {dd * 100:.1f}% מהשיא השנתי"
+
+
+def outlook() -> tuple[list[dict], list[str], set[str], list[str], list[str]]:
+    """הדירוג עכשיו, מול מה שבתיק: מה ייצא ומה ייכנס אם הדירוג יישאר כך עד הסבב"""
+    rows     = rank_sectors(include_today=False)
+    targets  = pick_targets(rows)
+    held     = {p["symbol"] for p in get_positions()}
+    leaving  = sorted(s for s in held & set(SECTORS) if s not in targets)
+    entering = [s for s in targets if s not in held]
+    return rows, targets, held, leaving, entering
+
+
+def change_line(leaving: list[str], entering: list[str]) -> str:
+    if leaving or entering:
+        return f"⚠️ אם הדירוג יישאר כך — יימכרו: {', '.join(leaving) or 'כלום'} · ייקנו: {', '.join(entering) or 'כלום'}"
+    return "✅ אם הדירוג יישאר כך — אין שינוי בתיק"
+
+
+# המצב האחרון שדווח ("מה צפוי בסבב"), כדי לשלוח התראה רק כשהוא משתנה ולא כל בוקר מחדש
+ALERT_KEY = "rotation:expected_change"
+
+
+def swap_alert_state(state: str) -> str | None:
+    """שומר את המצב החדש ומחזיר את הקודם. בלי Redis — מחזיר None (ואז נשלחת התראה אם יש שינוי צפוי)"""
+    try:
+        r = redis.Redis(host="redis-service", port=6379, decode_responses=True)
+        return r.getset(ALERT_KEY, state)
+    except redis.RedisError as e:
+        logger.warning(f"Redis לא זמין: {e}")
+        return None
+
+
+def is_first_of_week(today: date) -> bool:
+    days = trading_days(today - timedelta(days=10), today)
+    i    = days.index(today)
+    return i == 0 or days[i - 1].isocalendar()[:2] != today.isocalendar()[:2]
+
+
+async def weekly_overview(bot: Bot, today: date):
+    """סקירה שבועית (יום המסחר הראשון בשבוע), בלי עסקאות: מצב השוק, הדירוג, ומה צפוי בסבב הבא"""
+    lines = [f"📅 *סקירה שבועית — {today:%d.%m}*\n"]
+    try:
+        lines += [index_line("SPY"), index_line("QQQ"), ""]
+    except Exception as e:
+        logger.warning(f"נתוני מדדים נכשלו: {e}")
+
+    try:
+        rows, targets, held, leaving, entering = outlook()
+        lines.append("📊 *דירוג הסקטורים:*")
+        for line, r in zip(ranking_lines(rows, targets), rows):
+            lines.append(line + (" 💼" if r["symbol"] in held else ""))
+        lines.append(f"\n🔄 סבב הבא: {next_rebalance(today):%d.%m} בערב")
+        lines.append(change_line(leaving, entering))
+        swap_alert_state(",".join(leaving) + "|" + ",".join(entering))
+    except Exception as e:
+        logger.error(f"דירוג נכשל: {e}", exc_info=True)
+        lines.append(f"⚠️ לא הצלחתי לדרג את הסקטורים: {str(e)[:150]}")
+
+    lines.append("\n✅ = בטופ 3 · ⬇️ = מתחת לממוצע 200 יום · 💼 = בתיק")
+    await send(bot, chat_id=CHAT_ID, text="\n".join(lines))
+
+
+async def change_alert(bot: Bot, today: date):
+    """בשאר הבקרים: הודעה רק אם השתנה מה שצפוי לקרות בסבב הבא"""
+    rows, targets, held, leaving, entering = outlook()
+    state = ",".join(leaving) + "|" + ",".join(entering)
+    prev  = swap_alert_state(state)
+    if state == prev or (prev is None and state == "|"):
+        logger.info(f"אין שינוי בתחזית לסבב ({state})")
+        return
+    lines = [f"🔔 *שינוי בדירוג — {today:%d.%m}*\n", change_line(leaving, entering),
+             f"🔄 הסבב: {next_rebalance(today):%d.%m} בערב — עד אז שום דבר לא נקנה או נמכר\n",
+             *[line + (" 💼" if r["symbol"] in held else "") for line, r in zip(ranking_lines(rows, targets)[:5], rows)]]
+    await send(bot, chat_id=CHAT_ID, text="\n".join(lines))
+
+
 async def morning_scan(bot: Bot):
-    """ביום הראשון בחודש: קונים את הסקטורים החדשים ברשימה. בשאר הימים — לא עושים כלום"""
-    day = trading_day_type(datetime.now(NY).date())
+    """יום ראשון בחודש: קונים. יום ראשון בשבוע: סקירה שבועית. שאר הבקרים: התראה רק אם התחזית לסבב השתנתה"""
+    today = datetime.now(NY).date()
+    day   = trading_day_type(today)
+    if day == "closed":
+        logger.info("הבורסה סגורה היום")
+        return
     if day not in ("first", "first_and_last"):
-        logger.info(f"בוקר רגיל ({day}) — אין סבב היום")
+        if is_first_of_week(today):
+            await weekly_overview(bot, today)
+        else:
+            await change_alert(bot, today)
         return
 
     try:
@@ -163,6 +265,7 @@ async def morning_scan(bot: Bot):
     slot      = get_equity() / MAX_POSITIONS
     bought    = [s for s in targets if s not in held and buy_notional(s, slot)]
 
+    swap_alert_state("|")   # אחרי הסבב התיק תואם לדירוג — אין שינוי צפוי
     lines = ["🔄 *סבב חודשי — קנייה*\n", *ranking_lines(rows, targets), ""]
     if bought:
         lines.append(f"✅ קניתי: {', '.join(bought)} (${slot:,.0f} לכל אחד)")
@@ -199,7 +302,7 @@ async def evening_scan(bot: Bot):
             logger.error(f"סבב סוף חודש נכשל: {e}", exc_info=True)
             lines.append(f"⚠️ סבב סוף חודש נכשל — לא מכרתי כלום. ינוסה שוב מחר בבוקר.\n{str(e)[:150]}\n")
 
-    lines.append("🌆 *דוח ערב:*\n")
+    lines.append(f"🌆 *דוח ערב — {datetime.now(NY):%d.%m}:*\n")
     if not positions:
         lines.append("📭 אין פוזיציות פתוחות.")
     total_pl = 0.0

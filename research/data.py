@@ -18,6 +18,24 @@ BARS_URL  = "https://data.alpaca.markets/v2/stocks/bars"
 # שמות שהשתנו: הנתונים ההיסטוריים נמצאים תחת השם החדש
 RENAMED = {"SQ": "XYZ"}
 
+# אירועים ש-Alpaca לא מתאם (נמצאו בסריקה של תנועות יומיות חריגות):
+# BIL — איחוד מניות 1:2 ב-30.11.2017: המחיר "קופץ" פי 2. מכפילים את המחירים שלפני כן.
+SPLIT_FIXES = {"BIL": ("2017-11-30", 2.0)}
+# RTX — פיצול Carrier ו-Otis מתוך UTX ב-3.4.2020: נראה כמו ירידה של 71%. מתחילים את הנתונים מאחריו.
+START_AFTER = {"RTX": "2020-04-03"}
+
+
+def _fix(sym: str, df: pd.DataFrame) -> pd.DataFrame:
+    if sym in SPLIT_FIXES:
+        day, factor = SPLIT_FIXES[sym]
+        before = df.index < day
+        df = df.astype(float)
+        df.loc[before, ["open", "high", "low", "close"]] *= factor
+        df.loc[before, "volume"] /= factor
+    if sym in START_AFTER:
+        df = df[df.index >= START_AFTER[sym]]
+    return df
+
 UNIVERSES = {
     # רשימת המעקב של הבוט — נבחרה בדיעבד (מניות צמיחה שעלו), לכן תוצאות עליה מנופחות
     "watchlist": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AMD", "NFLX", "CRM",
@@ -86,5 +104,5 @@ def load(symbols: list[str], refresh: bool = False) -> dict[str, pd.DataFrame]:
     for sym, src in wanted.items():
         path = CACHE_DIR / f"{src}.csv"
         if path.exists():
-            out[sym] = pd.read_csv(path, index_col=0, parse_dates=True)
+            out[sym] = _fix(sym, pd.read_csv(path, index_col=0, parse_dates=True))
     return out

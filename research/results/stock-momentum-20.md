@@ -3,9 +3,9 @@
 | | Return | CAGR | MaxDD | Sharpe | Exposure | Trades | Win% | AvgTrade | PF | Days |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | SPY buy & hold | +113.7% | +11.5% | -33.8% | 0.68 | 100% | — | — | — | — | — |
-| equal_hold | +202.8% | +17.2% | -36.0% | 0.83 | 97% | 101 | 94% | +206.74% | 121.55 | 2502.0 |
-| momentum:max_positions=20,max_new_per_day=20 | +177.7% | +15.7% | -31.7% | 0.77 | 82% | 278 | 62% | +8.52% | 2.77 | 139.1 |
-| momentum:max_positions=20,max_new_per_day=20,market_filter=sma200 | +155.7% | +14.4% | -30.2% | 0.75 | 76% | 253 | 62% | +8.59% | 2.76 | 142.0 |
+| equal_hold | +203.1% | +17.2% | -36.0% | 0.84 | 97% | 100 | 95% | +209.13% | 148.41 | 2501.8 |
+| momentum:max_positions=20,max_new_per_day=20 | +177.5% | +15.7% | -31.7% | 0.77 | 82% | 276 | 62% | +8.58% | 2.77 | 140.1 |
+| momentum:max_positions=20,max_new_per_day=20,market_filter=sma200 | +155.6% | +14.4% | -30.2% | 0.75 | 76% | 251 | 62% | +8.65% | 2.76 | 143.2 |
 
 ### sp100 — out-of-sample 2023→
 
